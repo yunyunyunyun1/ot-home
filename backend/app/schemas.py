@@ -68,6 +68,11 @@ class ProfessionalRegister(UserBase, PasswordMixin):
     address: AddressCreate
 
 
+class VillageVolunteerRegister(UserBase, PasswordMixin):
+    hospital_or_clinic: str = Field(min_length=1, max_length=200)
+    address: AddressCreate
+
+
 class CaseManagerCreate(UserBase, PasswordMixin):
     address: AddressCreate
 

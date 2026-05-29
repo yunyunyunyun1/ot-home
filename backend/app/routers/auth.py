@@ -64,7 +64,7 @@ def register_caregiver(user_in: schemas.ProfessionalRegister, db: Session = Depe
     status_code=status.HTTP_201_CREATED,
 )
 def register_village_volunteer(
-    user_in: schemas.ProfessionalRegister,
+    user_in: schemas.VillageVolunteerRegister,
     db: Session = Depends(get_db),
 ):
     if crud.get_user_by_thai_id(db, user_in.thai_id):

@@ -12,3 +12,6 @@ def user_to_read(user: models.User) -> schemas.UserRead:
         is_active=user.is_active,
         created_at=user.created_at,
     )
+
+
+

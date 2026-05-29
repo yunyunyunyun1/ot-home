@@ -59,7 +59,7 @@ def create_caregiver(db: Session, user_in: schemas.ProfessionalRegister) -> mode
     return user
 
 
-def create_village_volunteer(db: Session, user_in: schemas.ProfessionalRegister) -> models.User:
+def create_village_volunteer(db: Session, user_in: schemas.VillageVolunteerRegister) -> models.User:
     address = create_address(db, user_in.address)
     user = models.User(
         thai_id=user_in.thai_id,
@@ -70,7 +70,6 @@ def create_village_volunteer(db: Session, user_in: schemas.ProfessionalRegister)
         email=user_in.email,
     )
     user.village_volunteer_profile = models.VillageVolunteerProfile(
-        license_id=user_in.license_id,
         hospital_or_clinic=user_in.hospital_or_clinic,
         address=address,
     )

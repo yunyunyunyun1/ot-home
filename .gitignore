@@ -32,3 +32,8 @@ Thumbs.db
 *.log
 postgres_data/
 
+# Frontend
+node_modules/
+dist/
+coverage/
+

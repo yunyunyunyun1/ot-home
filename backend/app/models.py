@@ -116,7 +116,7 @@ class VillageVolunteerProfile(Base):
     __table_args__ = (UniqueConstraint("license_id"),)
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    license_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    license_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     hospital_or_clinic: Mapped[str] = mapped_column(String(200), nullable=False)
     address_id: Mapped[int] = mapped_column(ForeignKey("addresses.id"), nullable=False)
 
