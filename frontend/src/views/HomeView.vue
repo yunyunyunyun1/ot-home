@@ -104,7 +104,13 @@ function hideMissingLogo(index: number) {
           <p>เพื่อเพิ่มโอกาสการเข้าถึงบริการแบบไร้รอยต่อ</p>
         </div>
 
-        <button class="welcome-button" type="button" @click="showWelcomePopup = false">
+        <button
+          class="welcome-button"
+          type="button"
+          aria-label="เข้าสู่ระบบ"
+          title="เข้าสู่ระบบ"
+          @click="showWelcomePopup = false"
+        >
           เข้าสู่เว็บไซต์
         </button>
       </section>
@@ -118,28 +124,12 @@ function hideMissingLogo(index: number) {
   overflow: hidden;
   position: relative;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.72), rgb(245 248 252 / 0.2)),
-    var(--color-background);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
 }
 
 .home-page::before {
-  position: absolute;
-  inset: auto -12rem -18rem auto;
-  width: 34rem;
-  height: 34rem;
-  border: 5rem solid rgb(96 165 250 / 0.14);
-  border-radius: 50%;
-  content: "";
-}
-
-.home-page::after {
-  position: absolute;
-  inset: 7rem auto auto -11rem;
-  width: 24rem;
-  height: 24rem;
-  border: 4rem solid rgb(59 130 246 / 0.08);
-  border-radius: 50%;
-  content: "";
+  display: none;
 }
 
 .top-nav {
@@ -316,7 +306,7 @@ h1 {
   border: 1px solid rgb(219 231 245 / 0.9);
   border-radius: 0.5rem;
   background: var(--color-surface);
-  box-shadow: 0 18px 44px rgb(31 41 55 / 0.1);
+  box-shadow: var(--shadow-soft);
 }
 
 .care-card strong {
@@ -352,31 +342,42 @@ h1 {
 
 .welcome-overlay {
   position: fixed;
-  z-index: 20;
+  z-index: 4000;
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
   background:
-    radial-gradient(circle at top, rgb(96 165 250 / 0.18), transparent 34rem),
-    rgb(31 41 55 / 0.36);
-  backdrop-filter: blur(6px);
+    radial-gradient(circle at top, rgb(78 115 223 / 0.2), transparent 34rem),
+    rgb(31 41 55 / 0.48);
+  backdrop-filter: blur(5px);
 }
 
 .welcome-popup {
-  width: min(42rem, 100%);
-  border: 1px solid rgb(219 231 245 / 0.95);
-  border-radius: 0.85rem;
+  position: relative;
+  width: min(96vw, 1180px, calc((100vh - 3rem) * 1.777));
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: clamp(0.8rem, 2vw, 1.6rem);
   padding: 0;
   overflow: hidden;
-  background: #ffffff;
-  box-shadow: 0 30px 90px rgb(31 41 55 / 0.24);
+  background:
+    image-set(
+      url("/welcome/ot-home-popup.jpg") 1x
+    )
+    center / cover no-repeat;
+  box-shadow: 0 1.5rem 4rem rgb(31 41 55 / 0.32);
 }
 
 .welcome-header {
-  padding: 1rem 1.3rem;
-  border-bottom: 1px solid rgb(219 231 245 / 0.72);
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .partner-logos {
@@ -409,10 +410,14 @@ h1 {
 }
 
 .welcome-copy {
-  display: grid;
-  gap: 0.35rem;
-  padding: clamp(1.45rem, 4vw, 2rem) clamp(1.25rem, 4vw, 2.2rem) 0;
-  text-align: center;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .welcome-kicker {
@@ -446,19 +451,31 @@ h1 {
 }
 
 .welcome-button {
-  display: inline-flex;
-  min-height: 2.85rem;
-  align-items: center;
-  justify-content: center;
-  width: calc(100% - clamp(2.5rem, 8vw, 4.4rem));
-  margin: 1.65rem clamp(1.25rem, 4vw, 2.2rem) clamp(1.25rem, 4vw, 2rem);
+  position: absolute;
+  z-index: 2;
+  display: block;
+  left: 50%;
+  bottom: 15%;
+  width: 34%;
+  min-width: 12rem;
+  height: 10.4%;
+  min-height: 2.8rem;
+  transform: translateX(-50%);
   border: 0;
-  border-radius: 0.5rem;
-  color: #ffffff;
-  background: var(--color-primary);
-  box-shadow: 0 14px 26px rgb(59 130 246 / 0.22);
-  font-weight: 800;
+  border-radius: 999px;
+  color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0;
   cursor: pointer;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+}
+
+.welcome-button:focus-visible {
+  outline: 0.25rem solid rgb(255 255 255 / 0.92);
+  outline-offset: 0.25rem;
 }
 
 @media (max-width: 820px) {

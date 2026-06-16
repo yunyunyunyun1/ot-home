@@ -63,3 +63,21 @@ def require_admin(current_user: models.User = Depends(get_current_user)) -> mode
             detail="Admin access required",
         )
     return current_user
+
+
+def require_case_manager(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != models.UserRole.CASE_MANAGER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Case manager access required",
+        )
+    return current_user
+
+
+def require_caregiver(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != models.UserRole.CAREGIVER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Caregiver access required",
+        )
+    return current_user

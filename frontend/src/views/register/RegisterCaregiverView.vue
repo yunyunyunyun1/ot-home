@@ -10,6 +10,7 @@ import {
   type ThaiProvince,
   type ThaiSubdistrict,
 } from "../../data/thaiAddress"
+import { toDigits } from "../../utils/digits"
 
 const provinceOptions = [...thaiAddressData.provinces]
 
@@ -32,6 +33,10 @@ const form = reactive({
 const isSubmitting = ref(false)
 const errorMessage = ref("")
 const successMessage = ref("")
+
+function updateThaiId(event: Event) {
+  form.thai_id = toDigits((event.target as HTMLInputElement).value)
+}
 
 const selectedProvince = computed<ThaiProvince | undefined>(() => {
   return provinceOptions.find((province) => String(province.id) === form.province_id)
@@ -157,6 +162,7 @@ async function submitForm() {
               required
               autocomplete="username"
               placeholder="กรอกเลข 13 หลัก"
+              @input="updateThaiId"
             />
           </label>
 
@@ -304,28 +310,12 @@ async function submitForm() {
   min-height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.78), rgb(245 248 252 / 0.2)),
-    var(--color-background);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
 }
 
 .register-form-page::before {
-  position: absolute;
-  inset: -14rem -12rem auto auto;
-  width: 34rem;
-  height: 34rem;
-  border: 5rem solid rgb(96 165 250 / 0.12);
-  border-radius: 50%;
-  content: "";
-}
-
-.register-form-page::after {
-  position: absolute;
-  inset: auto auto -18rem -12rem;
-  width: 32rem;
-  height: 32rem;
-  border: 4rem solid rgb(59 130 246 / 0.08);
-  border-radius: 50%;
-  content: "";
+  display: none;
 }
 
 .top-nav,
@@ -467,8 +457,8 @@ fieldset {
   padding: 1.35rem 1.15rem 1.15rem;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  background: rgb(255 255 255 / 0.86);
-  box-shadow: 0 18px 44px rgb(31 41 55 / 0.07);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: var(--shadow-soft);
 }
 
 legend {

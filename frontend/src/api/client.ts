@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"
+const TOKEN_STORAGE_KEY = "ot_at_home_access_token"
 
 type ApiErrorDetail = string | Array<{ msg?: string; loc?: Array<string | number> }>
 type AccountTypeResponse = {
@@ -39,9 +40,7 @@ function getErrorMessage(detail: ApiErrorDetail | undefined): string {
 export async function apiPost<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildHeaders(),
     body: JSON.stringify(body),
   })
 
@@ -57,4 +56,61 @@ export async function apiPost<TResponse, TBody>(path: string, body: TBody): Prom
   }
 
   return data as TResponse
+}
+
+function buildHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  return headers
+}
+
+export async function apiGet<TResponse>(path: string): Promise<TResponse> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers: buildHeaders(),
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new ApiError(getErrorMessage(data?.detail), response.status)
+  }
+
+  return data as TResponse
+}
+
+export async function apiPatch<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: buildHeaders(),
+    body: JSON.stringify(body),
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new ApiError(getErrorMessage(data?.detail), response.status)
+  }
+
+  return data as TResponse
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: buildHeaders(),
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new ApiError(getErrorMessage(data?.detail), response.status)
+  }
 }

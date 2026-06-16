@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app import models, schemas
 from app.security import get_password_hash
@@ -114,3 +115,410 @@ def create_admin(db: Session, thai_id: str, password: str) -> models.User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def get_kid_by_thai_id(db: Session, thai_id: str) -> models.Kid | None:
+    statement = select(models.Kid).where(models.Kid.thai_id == thai_id)
+    return db.scalar(statement)
+
+
+def get_kid_by_id(db: Session, kid_id: UUID) -> models.Kid | None:
+    statement = select(models.Kid).where(models.Kid.id == kid_id)
+    return db.scalar(statement)
+
+
+def get_caregiver_by_id(db: Session, caregiver_id: UUID) -> models.User | None:
+    statement = (
+        select(models.User)
+        .join(models.User.caregiver_profile)
+        .where(models.User.id == caregiver_id)
+        .where(models.User.role == models.UserRole.CAREGIVER)
+    )
+    return db.scalar(statement)
+
+
+def create_kid(
+    db: Session,
+    kid_in: schemas.KidCreate,
+    case_manager: models.User,
+) -> models.Kid:
+    address = create_address(db, kid_in.address)
+    kid = models.Kid(
+        thai_id=kid_in.thai_id,
+        full_name=kid_in.full_name,
+        address=address,
+        created_by_case_manager=case_manager,
+    )
+    db.add(kid)
+    db.commit()
+    db.refresh(kid)
+    return kid
+
+
+def update_address(
+    address: models.Address,
+    address_in: schemas.AddressCreate,
+) -> models.Address:
+    for field, value in address_in.model_dump().items():
+        setattr(address, field, value)
+    return address
+
+
+def update_kid(
+    db: Session,
+    kid: models.Kid,
+    kid_in: schemas.KidUpdate,
+) -> models.Kid:
+    kid.full_name = kid_in.full_name
+    update_address(kid.address, kid_in.address)
+    db.commit()
+    db.refresh(kid)
+    return kid
+
+
+def delete_kid(db: Session, kid: models.Kid) -> None:
+    db.delete(kid)
+    db.commit()
+
+
+def list_kids_for_case_manager_province(
+    db: Session,
+    province: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.Kid]:
+    statement = (
+        select(models.Kid)
+        .join(models.Kid.address)
+        .where(models.Address.province == province)
+        .order_by(models.Kid.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def list_caregivers_for_province(
+    db: Session,
+    province: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.User]:
+    statement = (
+        select(models.User)
+        .join(models.User.caregiver_profile)
+        .join(models.CaregiverProfile.address)
+        .where(models.User.role == models.UserRole.CAREGIVER)
+        .where(models.Address.province == province)
+        .order_by(models.User.full_name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def list_village_volunteers_for_province(
+    db: Session,
+    province: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.User]:
+    statement = (
+        select(models.User)
+        .join(models.User.village_volunteer_profile)
+        .join(models.VillageVolunteerProfile.address)
+        .where(models.User.role == models.UserRole.VILLAGE_VOLUNTEER)
+        .where(models.Address.province == province)
+        .order_by(models.User.full_name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def get_availability_slot_by_id(
+    db: Session,
+    slot_id: UUID,
+) -> models.CaregiverAvailabilitySlot | None:
+    statement = select(models.CaregiverAvailabilitySlot).where(
+        models.CaregiverAvailabilitySlot.id == slot_id
+    )
+    return db.scalar(statement)
+
+
+def create_availability_slot(
+    db: Session,
+    caregiver: models.User,
+    slot_in: schemas.CaregiverAvailabilityCreate,
+) -> models.CaregiverAvailabilitySlot:
+    slot = models.CaregiverAvailabilitySlot(
+        caregiver=caregiver,
+        available_date=slot_in.available_date,
+        start_time=slot_in.start_time,
+        end_time=slot_in.end_time,
+    )
+    db.add(slot)
+    db.commit()
+    db.refresh(slot)
+    return slot
+
+
+def update_availability_slot(
+    db: Session,
+    slot: models.CaregiverAvailabilitySlot,
+    slot_in: schemas.CaregiverAvailabilityUpdate,
+) -> models.CaregiverAvailabilitySlot:
+    slot.available_date = slot_in.available_date
+    slot.start_time = slot_in.start_time
+    slot.end_time = slot_in.end_time
+    db.commit()
+    db.refresh(slot)
+    return slot
+
+
+def delete_availability_slot(
+    db: Session,
+    slot: models.CaregiverAvailabilitySlot,
+) -> None:
+    db.delete(slot)
+    db.commit()
+
+
+def list_availability_slots_for_caregiver(
+    db: Session,
+    caregiver: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.CaregiverAvailabilitySlot]:
+    statement = (
+        select(models.CaregiverAvailabilitySlot)
+        .where(models.CaregiverAvailabilitySlot.caregiver_id == caregiver.id)
+        .order_by(
+            models.CaregiverAvailabilitySlot.available_date.asc(),
+            models.CaregiverAvailabilitySlot.start_time.asc(),
+        )
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def assign_kid_to_caregiver(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    case_manager: models.User,
+) -> models.CaregiverKidAssignment:
+    assignment = kid.caregiver_assignment
+    if assignment is None:
+        assignment = models.CaregiverKidAssignment(
+            kid=kid,
+            caregiver=caregiver,
+            assigned_by_case_manager=case_manager,
+        )
+        db.add(assignment)
+    else:
+        assignment.caregiver = caregiver
+        assignment.assigned_by_case_manager = case_manager
+
+    db.flush()
+    return assignment
+
+
+def list_therapy_sessions_for_kid_on_date(
+    db: Session,
+    kid: models.Kid,
+    scheduled_date,
+) -> list[models.TherapySession]:
+    statement = (
+        select(models.TherapySession)
+        .join(models.TherapySession.availability_slot)
+        .where(models.TherapySession.kid_id == kid.id)
+        .where(models.CaregiverAvailabilitySlot.available_date == scheduled_date)
+        .where(models.TherapySession.status != models.TherapySessionStatus.CANCELLED)
+    )
+    return list(db.scalars(statement).all())
+
+
+def create_therapy_session(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    case_manager: models.User,
+    availability_slot: models.CaregiverAvailabilitySlot,
+) -> models.TherapySession:
+    session = models.TherapySession(
+        kid=kid,
+        caregiver=caregiver,
+        case_manager=case_manager,
+        availability_slot=availability_slot,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def list_kids_for_caregiver(
+    db: Session,
+    caregiver: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.Kid]:
+    statement = (
+        select(models.Kid)
+        .join(models.Kid.caregiver_assignment)
+        .where(models.CaregiverKidAssignment.caregiver_id == caregiver.id)
+        .order_by(models.Kid.full_name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def get_kid_for_caregiver(
+    db: Session,
+    kid_id: UUID,
+    caregiver: models.User,
+) -> models.Kid | None:
+    statement = (
+        select(models.Kid)
+        .join(models.Kid.caregiver_assignment)
+        .where(models.Kid.id == kid_id)
+        .where(models.CaregiverKidAssignment.caregiver_id == caregiver.id)
+    )
+    return db.scalar(statement)
+
+
+def list_therapy_sessions_for_caregiver_kid(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.TherapySession]:
+    statement = (
+        select(models.TherapySession)
+        .join(models.TherapySession.availability_slot)
+        .where(models.TherapySession.kid_id == kid.id)
+        .where(models.TherapySession.caregiver_id == caregiver.id)
+        .where(models.TherapySession.status != models.TherapySessionStatus.CANCELLED)
+        .order_by(
+            models.CaregiverAvailabilitySlot.available_date.asc(),
+            models.CaregiverAvailabilitySlot.start_time.asc(),
+        )
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def get_next_unevaluated_therapy_session(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+) -> models.TherapySession | None:
+    statement = (
+        select(models.TherapySession)
+        .join(models.TherapySession.availability_slot)
+        .outerjoin(models.TherapySession.denver_evaluation)
+        .where(models.TherapySession.kid_id == kid.id)
+        .where(models.TherapySession.caregiver_id == caregiver.id)
+        .where(models.TherapySession.status == models.TherapySessionStatus.SCHEDULED)
+        .where(models.DenverEvaluation.id.is_(None))
+        .order_by(
+            models.CaregiverAvailabilitySlot.available_date.asc(),
+            models.CaregiverAvailabilitySlot.start_time.asc(),
+        )
+        .limit(1)
+    )
+    return db.scalar(statement)
+
+
+def list_denver_evaluations_for_kid(
+    db: Session,
+    kid: models.Kid,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.DenverEvaluation]:
+    statement = (
+        select(models.DenverEvaluation)
+        .where(models.DenverEvaluation.kid_id == kid.id)
+        .order_by(models.DenverEvaluation.created_at.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def create_denver_evaluation(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    therapy_session: models.TherapySession,
+    evaluation_in: schemas.DenverEvaluationCreate,
+) -> models.DenverEvaluation:
+    assignment = kid.caregiver_assignment
+    if assignment is None:
+        raise ValueError("Caregiver assignment is required")
+    evaluation = models.DenverEvaluation(
+        kid=kid,
+        evaluated_by_caregiver=caregiver,
+        therapy_session=therapy_session,
+        assignment=assignment,
+        availability_slot=therapy_session.availability_slot,
+        **evaluation_in.model_dump(),
+    )
+    db.add(evaluation)
+    therapy_session.status = models.TherapySessionStatus.COMPLETED
+    db.commit()
+    db.refresh(evaluation)
+    return evaluation
+
+
+def get_denver_evaluation_for_kid(
+    db: Session,
+    kid: models.Kid,
+    evaluation_id: UUID,
+) -> models.DenverEvaluation | None:
+    statement = (
+        select(models.DenverEvaluation)
+        .where(models.DenverEvaluation.id == evaluation_id)
+        .where(models.DenverEvaluation.kid_id == kid.id)
+    )
+    return db.scalar(statement)
+
+
+def list_home_program_activities_for_kid(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.HomeProgramActivity]:
+    statement = (
+        select(models.HomeProgramActivity)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .where(models.HomeProgramActivity.caregiver_id == caregiver.id)
+        .order_by(models.HomeProgramActivity.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def create_home_program_activity(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    activity_in: schemas.HomeProgramActivityCreate,
+) -> models.HomeProgramActivity:
+    activity = models.HomeProgramActivity(
+        kid=kid,
+        caregiver=caregiver,
+        **activity_in.model_dump(),
+    )
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    return activity

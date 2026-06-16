@@ -5,6 +5,7 @@ import { RouterLink, useRouter } from "vue-router"
 import { login } from "../../api/auth"
 import { ApiError } from "../../api/client"
 import { useAuthStore } from "../../stores/auth"
+import { toDigits } from "../../utils/digits"
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -16,6 +17,10 @@ const form = reactive({
 
 const isSubmitting = ref(false)
 const errorMessage = ref("")
+
+function updateThaiId(event: Event) {
+  form.thai_id = toDigits((event.target as HTMLInputElement).value)
+}
 
 const roleRedirects: Record<string, string> = {
   admin: "/admin",
@@ -79,6 +84,7 @@ async function submitForm() {
               required
               autocomplete="username"
               placeholder="กรอกเลข 13 หลัก"
+              @input="updateThaiId"
             />
           </label>
 
@@ -114,28 +120,12 @@ async function submitForm() {
   min-height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.78), rgb(245 248 252 / 0.2)),
-    var(--color-background);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
 }
 
 .login-page::before {
-  position: absolute;
-  inset: -14rem -12rem auto auto;
-  width: 34rem;
-  height: 34rem;
-  border: 5rem solid rgb(96 165 250 / 0.12);
-  border-radius: 50%;
-  content: "";
-}
-
-.login-page::after {
-  position: absolute;
-  inset: auto auto -18rem -12rem;
-  width: 32rem;
-  height: 32rem;
-  border: 4rem solid rgb(59 130 246 / 0.08);
-  border-radius: 50%;
-  content: "";
+  display: none;
 }
 
 .top-nav,
@@ -264,7 +254,7 @@ fieldset {
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   background: rgb(255 255 255 / 0.86);
-  box-shadow: 0 18px 44px rgb(31 41 55 / 0.07);
+  box-shadow: var(--shadow-soft);
 }
 
 legend {

@@ -3,8 +3,8 @@ import { ref } from "vue"
 
 import type { UserResponse } from "../api/auth"
 
-const TOKEN_STORAGE_KEY = "ot_at_home_access_token"
-const USER_STORAGE_KEY = "ot_at_home_user"
+export const TOKEN_STORAGE_KEY = "ot_at_home_access_token"
+export const USER_STORAGE_KEY = "ot_at_home_user"
 
 export const useAuthStore = defineStore("auth", () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_STORAGE_KEY))

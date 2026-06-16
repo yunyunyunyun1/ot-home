@@ -28,8 +28,8 @@ const pageTitle = computed(() => props.title)
 .role-page {
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.78), rgb(245 248 252 / 0.2)),
-    var(--color-background);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
 }
 
 .top-nav,

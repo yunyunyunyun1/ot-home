@@ -56,15 +56,20 @@ const router = createRouter({
     {
       path: '/case-manager',
       name: 'case-manager-home',
-      component: () => import('../views/role/RoleBlankView.vue'),
-      props: { title: 'Case Manager' },
+      component: () => import('../views/case-manager/CaseManagerDashboardView.vue'),
       meta: { requiresAuth: true, roles: ['case_manager'] },
     },
     {
       path: '/caregiver',
       name: 'caregiver-home',
-      component: () => import('../views/role/RoleBlankView.vue'),
+      component: () => import('../views/caregiver/CaregiverDashboardView.vue'),
       props: { title: 'นักกิจกรรมบำบัด' },
+      meta: { requiresAuth: true, roles: ['caregiver'] },
+    },
+    {
+      path: '/caregiver/kids/:kidId/development',
+      name: 'caregiver-kid-development',
+      component: () => import('../views/caregiver/KidDevelopmentView.vue'),
       meta: { requiresAuth: true, roles: ['caregiver'] },
     },
     {
@@ -79,6 +84,10 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
+
+  if (to.name === 'login' && authStore.token && authStore.user) {
+    return { name: roleRouteNames[authStore.user.role] ?? 'home' }
+  }
 
   if (to.meta.requiresAuth && !authStore.token) {
     return { name: 'login' }

@@ -71,28 +71,12 @@ const roles = [
   min-height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.78), rgb(245 248 252 / 0.2)),
-    var(--color-background);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
 }
 
 .register-page::before {
-  position: absolute;
-  inset: -12rem -11rem auto auto;
-  width: 30rem;
-  height: 30rem;
-  border: 4rem solid rgb(96 165 250 / 0.12);
-  border-radius: 50%;
-  content: "";
-}
-
-.register-page::after {
-  position: absolute;
-  inset: auto auto -16rem -13rem;
-  width: 34rem;
-  height: 34rem;
-  border: 5rem solid rgb(59 130 246 / 0.08);
-  border-radius: 50%;
-  content: "";
+  display: none;
 }
 
 .top-nav {
@@ -225,8 +209,8 @@ h1 {
   padding: 1.15rem;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  background: rgb(255 255 255 / 0.84);
-  box-shadow: 0 20px 48px rgb(31 41 55 / 0.08);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: var(--shadow-soft);
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,

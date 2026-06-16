@@ -1,0 +1,1459 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from "vue"
+import { RouterLink, useRoute, useRouter } from "vue-router"
+
+import { ApiError } from "../../api/client"
+import {
+  createHomeProgramActivity,
+  createDenverEvaluation,
+  listHomeProgramActivities,
+  listDenverEvaluations,
+  listMyAssignedKids,
+  listTherapySessions,
+  type DenverAspectResult,
+  type DenverEvaluationResponse,
+  type HomeProgramActivityResponse,
+  type KidResponse,
+  type TherapySessionResponse,
+} from "../../api/kids"
+import { useAuthStore } from "../../stores/auth"
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+const kids = ref<KidResponse[]>([])
+const evaluations = ref<DenverEvaluationResponse[]>([])
+const homeProgramActivities = ref<HomeProgramActivityResponse[]>([])
+const therapySessions = ref<TherapySessionResponse[]>([])
+const isLoading = ref(false)
+const isSubmitting = ref(false)
+const isSubmittingHomeProgram = ref(false)
+const isEvaluationModalOpen = ref(false)
+const isHomeProgramModalOpen = ref(false)
+const isHomeProgramDetailModalOpen = ref(false)
+const selectedHomeProgramEvaluation = ref<DenverEvaluationResponse | null>(null)
+const selectedHomeProgramDetailEvaluation = ref<DenverEvaluationResponse | null>(null)
+const errorMessage = ref("")
+const successMessage = ref("")
+
+const form = reactive({
+  aspect_1_result: "pass" as DenverAspectResult,
+  aspect_2_result: "pass" as DenverAspectResult,
+  aspect_3_result: "pass" as DenverAspectResult,
+  aspect_4_result: "pass" as DenverAspectResult,
+})
+
+const homeProgramForm = reactive({
+  aspect: "personal_social",
+  title: "",
+  instruction: "",
+  frequency: "",
+  note: "",
+})
+
+const aspectOptions = [
+  { key: "aspect_1_result", label: "ส่วนบุคคล-สังคม", helper: "Personal-Social" },
+  { key: "aspect_2_result", label: "กล้ามเนื้อมัดเล็กและการปรับตัว", helper: "Fine Motor-Adaptive" },
+  { key: "aspect_3_result", label: "ภาษา", helper: "Language" },
+  { key: "aspect_4_result", label: "กล้ามเนื้อมัดใหญ่", helper: "Gross Motor" },
+] as const
+
+const homeProgramAspectOptions = [
+  { value: "personal_social", label: "ส่วนบุคคล-สังคม" },
+  { value: "fine_motor_adaptive", label: "กล้ามเนื้อมัดเล็กและการปรับตัว" },
+  { value: "language", label: "ภาษา" },
+  { value: "gross_motor", label: "กล้ามเนื้อมัดใหญ่" },
+] as const
+
+const kidId = computed(() => String(route.params.kidId ?? ""))
+
+const kid = computed(() => {
+  return kids.value.find((item) => item.id === kidId.value)
+})
+
+const latestEvaluation = computed(() => {
+  return evaluations.value.at(-1)
+})
+
+const nextSessionNumber = computed(() => {
+  return evaluations.value.length + 1
+})
+
+const nextTherapySession = computed(() => {
+  return therapySessions.value.find((session) => {
+    return session.status === "scheduled" && !session.has_denver_evaluation
+  })
+})
+
+const latestPassCount = computed(() => {
+  if (!latestEvaluation.value) {
+    return "-"
+  }
+
+  const results = [
+    latestEvaluation.value.aspect_1_result,
+    latestEvaluation.value.aspect_2_result,
+    latestEvaluation.value.aspect_3_result,
+    latestEvaluation.value.aspect_4_result,
+  ]
+  return `${results.filter((result) => result === "pass").length}/4`
+})
+
+const selectedHomeProgramEvaluationLabel = computed(() => {
+  if (!selectedHomeProgramEvaluation.value) {
+    return "ยังไม่ได้เลือกผลประเมิน"
+  }
+
+  return `${sessionLabel(selectedHomeProgramEvaluation.value.evaluation_name)} · ${scheduleLabel(selectedHomeProgramEvaluation.value)}`
+})
+
+const selectedHomeProgramDetailLabel = computed(() => {
+  if (!selectedHomeProgramDetailEvaluation.value) {
+    return "ยังไม่ได้เลือกผลประเมิน"
+  }
+
+  return `${sessionLabel(selectedHomeProgramDetailEvaluation.value.evaluation_name)} · ${scheduleLabel(selectedHomeProgramDetailEvaluation.value)}`
+})
+
+const selectedHomeProgramDetails = computed(() => {
+  if (!selectedHomeProgramDetailEvaluation.value) {
+    return []
+  }
+
+  return homeProgramActivities.value.filter((activity) => {
+    return activity.evaluation_id === selectedHomeProgramDetailEvaluation.value?.id
+  })
+})
+
+function resultLabel(result: DenverAspectResult) {
+  return result === "pass" ? "ผ่าน" : "ไม่ผ่าน"
+}
+
+function resultClass(result: DenverAspectResult) {
+  return result === "pass" ? "result-pill result-pill--pass" : "result-pill result-pill--fail"
+}
+
+function sessionLabel(evaluationName: string) {
+  return `ครั้งที่ ${evaluationName}`
+}
+
+function scheduleLabel(evaluation: DenverEvaluationResponse) {
+  if (
+    !evaluation.scheduled_date ||
+    !evaluation.scheduled_start_time ||
+    !evaluation.scheduled_end_time
+  ) {
+    return "ยังไม่มีวันนัด"
+  }
+
+  return `${evaluation.scheduled_date} ${evaluation.scheduled_start_time.slice(0, 5)}-${evaluation.scheduled_end_time.slice(0, 5)}`
+}
+
+function therapySessionLabel(session: TherapySessionResponse | undefined) {
+  if (!session) {
+    return "ยังไม่มีการนัด"
+  }
+
+  return `${session.scheduled_date} ${session.scheduled_start_time.slice(0, 5)}-${session.scheduled_end_time.slice(0, 5)}`
+}
+
+function homeProgramAspectLabel(aspect: string) {
+  return homeProgramAspectOptions.find((option) => option.value === aspect)?.label ?? aspect
+}
+
+function homeProgramEvaluation(activity: HomeProgramActivityResponse) {
+  return evaluations.value.find((evaluation) => evaluation.id === activity.evaluation_id)
+}
+
+function homeProgramScheduleLabel(activity: HomeProgramActivityResponse) {
+  const evaluation = homeProgramEvaluation(activity)
+  return evaluation ? scheduleLabel(evaluation) : "ยังไม่ได้ผูกกับผลประเมิน"
+}
+
+function homeProgramCountForEvaluation(evaluation: DenverEvaluationResponse) {
+  return homeProgramActivities.value.filter((activity) => activity.evaluation_id === evaluation.id).length
+}
+
+function resetHomeProgramForm() {
+  homeProgramForm.aspect = "personal_social"
+  homeProgramForm.title = ""
+  homeProgramForm.instruction = ""
+  homeProgramForm.frequency = ""
+  homeProgramForm.note = ""
+}
+
+function openHomeProgramModal(evaluation: DenverEvaluationResponse | undefined = latestEvaluation.value) {
+  if (!evaluation) {
+    errorMessage.value = "กรุณาบันทึกผลประเมินก่อนเพิ่ม Home Program"
+    return
+  }
+
+  selectedHomeProgramEvaluation.value = evaluation
+  errorMessage.value = ""
+  successMessage.value = ""
+  isHomeProgramModalOpen.value = true
+}
+
+function closeHomeProgramModal() {
+  if (!isSubmittingHomeProgram.value) {
+    isHomeProgramModalOpen.value = false
+  }
+}
+
+function openHomeProgramDetailModal(evaluation: DenverEvaluationResponse) {
+  selectedHomeProgramDetailEvaluation.value = evaluation
+  isHomeProgramDetailModalOpen.value = true
+}
+
+function closeHomeProgramDetailModal() {
+  isHomeProgramDetailModalOpen.value = false
+}
+
+function openEvaluationModal() {
+  if (!nextTherapySession.value) {
+    errorMessage.value = "ยังไม่มีนัดที่รอประเมิน"
+    return
+  }
+
+  errorMessage.value = ""
+  successMessage.value = ""
+  isEvaluationModalOpen.value = true
+}
+
+function closeEvaluationModal() {
+  if (!isSubmitting.value) {
+    isEvaluationModalOpen.value = false
+  }
+}
+
+async function loadPage() {
+  isLoading.value = true
+  errorMessage.value = ""
+  successMessage.value = ""
+
+  try {
+    kids.value = await listMyAssignedKids()
+    if (!kid.value) {
+      errorMessage.value = "ไม่พบข้อมูลเด็ก หรือเด็กคนนี้ไม่ได้อยู่ในรายการที่คุณรับผิดชอบ"
+      return
+    }
+    const [loadedEvaluations, loadedSessions, loadedHomeProgramActivities] = await Promise.all([
+      listDenverEvaluations(kidId.value),
+      listTherapySessions(kidId.value),
+      listHomeProgramActivities(kidId.value),
+    ])
+    evaluations.value = loadedEvaluations
+    therapySessions.value = loadedSessions
+    homeProgramActivities.value = loadedHomeProgramActivities
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : "ไม่สามารถโหลดข้อมูลพัฒนาการได้ กรุณาลองใหม่อีกครั้ง"
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function submitHomeProgramActivity() {
+  errorMessage.value = ""
+  successMessage.value = ""
+  isSubmittingHomeProgram.value = true
+
+  try {
+    const activity = await createHomeProgramActivity(kidId.value, {
+      evaluation_id: selectedHomeProgramEvaluation.value?.id ?? null,
+      aspect: homeProgramForm.aspect,
+      title: homeProgramForm.title,
+      instruction: homeProgramForm.instruction,
+      frequency: homeProgramForm.frequency || null,
+      note: homeProgramForm.note || null,
+    })
+    homeProgramActivities.value = [activity, ...homeProgramActivities.value]
+    resetHomeProgramForm()
+    successMessage.value = "บันทึก Home Program แล้ว"
+    isHomeProgramModalOpen.value = false
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : "ไม่สามารถบันทึก Home Program ได้ กรุณาลองใหม่อีกครั้ง"
+  } finally {
+    isSubmittingHomeProgram.value = false
+  }
+}
+
+async function submitEvaluation() {
+  errorMessage.value = ""
+  successMessage.value = ""
+  isSubmitting.value = true
+
+  try {
+    const evaluation = await createDenverEvaluation(kidId.value, {
+      evaluation_name: String(nextSessionNumber.value),
+      aspect_1_result: form.aspect_1_result,
+      aspect_2_result: form.aspect_2_result,
+      aspect_3_result: form.aspect_3_result,
+      aspect_4_result: form.aspect_4_result,
+    })
+    evaluations.value = [...evaluations.value, evaluation]
+    therapySessions.value = therapySessions.value.map((session) => {
+      if (session.id !== evaluation.therapy_session_id) {
+        return session
+      }
+      return {
+        ...session,
+        status: "completed",
+        has_denver_evaluation: true,
+      }
+    })
+    successMessage.value = "บันทึกผลประเมิน Denver II แล้ว"
+    isEvaluationModalOpen.value = false
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : "ไม่สามารถบันทึกผลประเมินได้ กรุณาลองใหม่อีกครั้ง"
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function goBack() {
+  router.push({ name: "caregiver-home" })
+}
+
+onMounted(loadPage)
+</script>
+
+<template>
+  <main class="development-page">
+    <nav class="top-nav" aria-label="Main navigation">
+      <RouterLink class="brand" to="/" aria-label="OT@HOME home">
+        <span class="logo-slot" aria-hidden="true"></span>
+        <span class="brand-name">OT@HOME</span>
+      </RouterLink>
+
+      <div class="user-chip">{{ authStore.user?.full_name ?? "นักบำบัด" }}</div>
+    </nav>
+
+    <section class="development-shell" aria-labelledby="development-title">
+      <div class="page-heading">
+        <div>
+          <h1 id="development-title">
+            {{ kid?.full_name ?? "ติดตามพัฒนาการเด็ก" }}
+          </h1>
+        </div>
+
+        <button
+          type="button"
+          class="icon-back-button"
+          aria-label="กลับหน้ารายชื่อเด็ก"
+          @click="goBack"
+        >
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <p v-if="errorMessage" class="form-alert form-alert--error">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="form-alert form-alert--success">{{ successMessage }}</p>
+
+      <div v-if="isLoading" class="surface-panel loading-panel">
+        กำลังโหลดข้อมูลพัฒนาการ...
+      </div>
+
+      <template v-else-if="kid">
+        <div class="summary-strip" aria-label="ภาพรวมพัฒนาการ">
+          <div class="summary-item">
+            <span>ผลล่าสุด</span>
+            <strong>{{ latestPassCount }}</strong>
+          </div>
+          <div class="summary-item">
+            <span>ครั้งที่ประเมิน</span>
+            <strong>{{ evaluations.length }}</strong>
+          </div>
+          <div class="summary-item">
+            <span>นัดล่าสุด</span>
+            <strong>{{ latestEvaluation ? scheduleLabel(latestEvaluation) : "รอประเมิน" }}</strong>
+          </div>
+        </div>
+
+        <details class="surface-panel kid-profile-collapsible">
+          <summary>
+            <span>ข้อมูลเด็ก</span>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+          </summary>
+          <dl class="profile-list">
+            <div>
+              <dt>ชื่อ-นามสกุล</dt>
+              <dd>{{ kid.full_name }}</dd>
+            </div>
+            <div>
+              <dt>เลขประจำตัวประชาชน</dt>
+              <dd>{{ kid.thai_id_masked }}</dd>
+            </div>
+            <div>
+              <dt>ที่อยู่</dt>
+              <dd>
+                {{ kid.address.house_no ? `${kid.address.house_no} ` : "" }}
+                {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : "" }}
+                {{ kid.address.road ? `ถนน${kid.address.road} ` : "" }}
+                {{ kid.address.subdistrict }}, {{ kid.address.district }},
+                {{ kid.address.province }} {{ kid.address.postal_code }}
+              </dd>
+            </div>
+          </dl>
+        </details>
+
+        <div class="content-grid">
+          <section class="surface-panel" aria-labelledby="score-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="score-title">บันทึกผลประเมิน Denver II</h2>
+                <p>กดปุ่มเพื่อเปิดแบบประเมิน 4 ด้าน สำหรับนัดที่รอประเมิน</p>
+              </div>
+            </div>
+
+            <div class="evaluation-action-panel">
+              <div class="session-preview">
+                <span>ครั้งที่ประเมิน</span>
+                <strong>ครั้งที่ {{ nextSessionNumber }}</strong>
+              </div>
+
+              <div class="session-preview session-preview--schedule">
+                <span>สถานะ</span>
+                <strong>{{ therapySessionLabel(nextTherapySession) }}</strong>
+              </div>
+
+              <button
+                class="primary-action evaluate-button"
+                type="button"
+                :disabled="!nextTherapySession"
+                @click="openEvaluationModal"
+              >
+                ประเมินเด็ก
+              </button>
+            </div>
+          </section>
+
+          <aside class="surface-panel kid-profile-side-panel" aria-labelledby="kid-profile-title">
+            <h2 id="kid-profile-title">ข้อมูลเด็ก</h2>
+            <dl class="profile-list">
+              <div>
+                <dt>ชื่อ-นามสกุล</dt>
+                <dd>{{ kid.full_name }}</dd>
+              </div>
+              <div>
+                <dt>เลขประจำตัวประชาชน</dt>
+                <dd>{{ kid.thai_id_masked }}</dd>
+              </div>
+              <div>
+                <dt>ที่อยู่</dt>
+                <dd>
+                  {{ kid.address.house_no ? `${kid.address.house_no} ` : "" }}
+                  {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : "" }}
+                  {{ kid.address.road ? `ถนน${kid.address.road} ` : "" }}
+                  {{ kid.address.subdistrict }}, {{ kid.address.district }},
+                  {{ kid.address.province }} {{ kid.address.postal_code }}
+                </dd>
+              </div>
+            </dl>
+          </aside>
+
+          <section class="surface-panel evaluation-history" aria-labelledby="history-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="history-title">ประวัติผลประเมิน</h2>
+                <p>รายการผลประเมิน Denver II ที่บันทึกไว้</p>
+              </div>
+            </div>
+
+            <div v-if="evaluations.length === 0" class="empty-state">
+              ยังไม่มีผลประเมินของเด็กคนนี้
+            </div>
+
+            <table v-else>
+              <thead>
+                <tr>
+                  <th scope="col">ครั้งที่ประเมิน</th>
+                  <th scope="col">วันเวลานัด</th>
+                  <th scope="col">ส่วนบุคคล-สังคม</th>
+                  <th scope="col">กล้ามเนื้อมัดเล็ก</th>
+                  <th scope="col">ภาษา</th>
+                  <th scope="col">กล้ามเนื้อมัดใหญ่</th>
+                  <th scope="col">Home Program</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="evaluation in evaluations" :key="evaluation.id">
+                  <td>{{ sessionLabel(evaluation.evaluation_name) }}</td>
+                  <td>{{ scheduleLabel(evaluation) }}</td>
+                  <td><span :class="resultClass(evaluation.aspect_1_result)">{{ resultLabel(evaluation.aspect_1_result) }}</span></td>
+                  <td><span :class="resultClass(evaluation.aspect_2_result)">{{ resultLabel(evaluation.aspect_2_result) }}</span></td>
+                  <td><span :class="resultClass(evaluation.aspect_3_result)">{{ resultLabel(evaluation.aspect_3_result) }}</span></td>
+                  <td><span :class="resultClass(evaluation.aspect_4_result)">{{ resultLabel(evaluation.aspect_4_result) }}</span></td>
+                  <td>
+                    <div class="table-action-group">
+                      <button
+                        type="button"
+                        class="table-action-button"
+                        @click="openHomeProgramModal(evaluation)"
+                      >
+                        เพิ่ม
+                      </button>
+                      <button
+                        type="button"
+                        class="table-action-button table-action-button--detail"
+                        @click="openHomeProgramDetailModal(evaluation)"
+                      >
+                        รายละเอียด
+                        <span v-if="homeProgramCountForEvaluation(evaluation) > 0">
+                          {{ homeProgramCountForEvaluation(evaluation) }}
+                        </span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="surface-panel home-program-panel" aria-labelledby="home-program-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="home-program-title">Home Program</h2>
+                <p>กิจกรรมที่นักบำบัดมอบหมายให้เด็กฝึกต่อที่บ้าน</p>
+              </div>
+            </div>
+
+            <form class="home-program-form" @submit.prevent="submitHomeProgramActivity">
+              <label>
+                <span>ด้านพัฒนาการ</span>
+                <select v-model="homeProgramForm.aspect" required>
+                  <option
+                    v-for="aspect in homeProgramAspectOptions"
+                    :key="aspect.value"
+                    :value="aspect.value"
+                  >
+                    {{ aspect.label }}
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                <span>ชื่อกิจกรรม</span>
+                <input
+                  v-model="homeProgramForm.title"
+                  type="text"
+                  required
+                  maxlength="160"
+                  placeholder="เช่น ฝึกหยิบจับของเล่น"
+                />
+              </label>
+
+              <label class="wide-field">
+                <span>วิธีทำกิจกรรมที่บ้าน</span>
+                <textarea
+                  v-model="homeProgramForm.instruction"
+                  required
+                  rows="4"
+                  placeholder="อธิบายขั้นตอนให้ผู้ปกครองทำตามได้"
+                ></textarea>
+              </label>
+
+              <label>
+                <span>ความถี่</span>
+                <input
+                  v-model="homeProgramForm.frequency"
+                  type="text"
+                  maxlength="160"
+                  placeholder="เช่น วันละ 10 นาที"
+                />
+              </label>
+
+              <label>
+                <span>หมายเหตุ</span>
+                <input
+                  v-model="homeProgramForm.note"
+                  type="text"
+                  placeholder="ถ้ามี"
+                />
+              </label>
+
+              <button class="primary-action wide-field" type="submit" :disabled="isSubmittingHomeProgram">
+                {{ isSubmittingHomeProgram ? "กำลังบันทึก..." : "เพิ่ม Home Program" }}
+              </button>
+            </form>
+
+            <div v-if="homeProgramActivities.length === 0" class="empty-state">
+              ยังไม่มี Home Program สำหรับเด็กคนนี้
+            </div>
+
+            <div v-else class="home-program-list">
+              <article
+                v-for="activity in homeProgramActivities"
+                :key="activity.id"
+                class="home-program-card"
+              >
+                <div>
+                  <span class="program-aspect">{{ homeProgramAspectLabel(activity.aspect) }}</span>
+                  <h3>{{ activity.title }}</h3>
+                </div>
+                <small>วันที่ประเมิน: {{ homeProgramScheduleLabel(activity) }}</small>
+                <p>{{ activity.instruction }}</p>
+                <small v-if="activity.frequency">ความถี่: {{ activity.frequency }}</small>
+                <small v-if="activity.note">หมายเหตุ: {{ activity.note }}</small>
+              </article>
+            </div>
+          </section>
+        </div>
+      </template>
+    </section>
+
+    <div
+      v-if="isEvaluationModalOpen"
+      class="evaluation-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="evaluation-modal-title"
+      @click.self="closeEvaluationModal"
+    >
+      <section class="evaluation-modal">
+        <header class="evaluation-modal-header">
+          <div>
+            <p class="eyebrow">Denver II</p>
+            <h2 id="evaluation-modal-title">ประเมินเด็ก</h2>
+            <p>
+              ครั้งที่ {{ nextSessionNumber }} · {{ therapySessionLabel(nextTherapySession) }}
+            </p>
+          </div>
+          <button
+            class="modal-close-button"
+            type="button"
+            aria-label="ปิดหน้าต่างประเมิน"
+            @click="closeEvaluationModal"
+          >
+            ×
+          </button>
+        </header>
+
+        <form class="evaluation-form" @submit.prevent="submitEvaluation">
+          <fieldset
+            v-for="aspect in aspectOptions"
+            :key="aspect.key"
+            class="aspect-field"
+          >
+            <legend>
+              {{ aspect.label }}
+              <small>{{ aspect.helper }}</small>
+            </legend>
+            <label>
+              <input
+                v-model="form[aspect.key]"
+                type="radio"
+                value="pass"
+              />
+              <span>ผ่าน</span>
+            </label>
+            <label>
+              <input
+                v-model="form[aspect.key]"
+                type="radio"
+                value="fail"
+              />
+              <span>ไม่ผ่าน</span>
+            </label>
+          </fieldset>
+
+          <div class="modal-actions">
+            <button class="secondary-action" type="button" @click="closeEvaluationModal">
+              ยกเลิก
+            </button>
+            <button
+              class="primary-action"
+              type="submit"
+              :disabled="isSubmitting || !nextTherapySession"
+            >
+              {{ isSubmitting ? "กำลังบันทึก..." : "บันทึกผลประเมิน" }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div
+      v-if="isHomeProgramModalOpen"
+      class="evaluation-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="home-program-modal-title"
+      @click.self="closeHomeProgramModal"
+    >
+      <section class="evaluation-modal">
+        <header class="evaluation-modal-header">
+          <div>
+            <p class="eyebrow">Home Program</p>
+            <h2 id="home-program-modal-title">เพิ่มโฮมโปรแกรม</h2>
+            <p>{{ selectedHomeProgramEvaluationLabel }}</p>
+          </div>
+          <button
+            class="modal-close-button"
+            type="button"
+            aria-label="ปิดหน้าต่างเพิ่มโฮมโปรแกรม"
+            @click="closeHomeProgramModal"
+          >
+            ×
+          </button>
+        </header>
+
+        <form class="home-program-form home-program-form--modal" @submit.prevent="submitHomeProgramActivity">
+          <label>
+            <span>ด้านพัฒนาการ</span>
+            <select v-model="homeProgramForm.aspect" required>
+              <option
+                v-for="aspect in homeProgramAspectOptions"
+                :key="aspect.value"
+                :value="aspect.value"
+              >
+                {{ aspect.label }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>ชื่อกิจกรรม</span>
+            <input
+              v-model="homeProgramForm.title"
+              type="text"
+              required
+              maxlength="160"
+              placeholder="เช่น ฝึกหยิบจับของเล่น"
+            />
+          </label>
+
+          <label class="wide-field">
+            <span>วิธีทำกิจกรรมที่บ้าน</span>
+            <textarea
+              v-model="homeProgramForm.instruction"
+              required
+              rows="4"
+              placeholder="อธิบายขั้นตอนให้ผู้ปกครองทำตามได้"
+            ></textarea>
+          </label>
+
+          <label>
+            <span>ความถี่</span>
+            <input
+              v-model="homeProgramForm.frequency"
+              type="text"
+              maxlength="160"
+              placeholder="เช่น วันละ 10 นาที"
+            />
+          </label>
+
+          <label>
+            <span>หมายเหตุ</span>
+            <input
+              v-model="homeProgramForm.note"
+              type="text"
+              placeholder="ถ้ามี"
+            />
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-action" type="button" @click="closeHomeProgramModal">
+              ยกเลิก
+            </button>
+            <button class="primary-action" type="submit" :disabled="isSubmittingHomeProgram">
+              {{ isSubmittingHomeProgram ? "กำลังบันทึก..." : "บันทึกโฮมโปรแกรม" }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div
+      v-if="isHomeProgramDetailModalOpen"
+      class="evaluation-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="home-program-detail-title"
+      @click.self="closeHomeProgramDetailModal"
+    >
+      <section class="evaluation-modal">
+        <header class="evaluation-modal-header">
+          <div>
+            <p class="eyebrow">Home Program</p>
+            <h2 id="home-program-detail-title">รายละเอียดโฮมโปรแกรม</h2>
+            <p>{{ selectedHomeProgramDetailLabel }}</p>
+          </div>
+          <button
+            class="modal-close-button"
+            type="button"
+            aria-label="ปิดหน้าต่างรายละเอียดโฮมโปรแกรม"
+            @click="closeHomeProgramDetailModal"
+          >
+            ×
+          </button>
+        </header>
+
+        <div v-if="selectedHomeProgramDetails.length === 0" class="empty-state">
+          ยังไม่มี Home Program สำหรับครั้งนี้
+        </div>
+
+        <div v-else class="home-program-list home-program-list--modal">
+          <article
+            v-for="activity in selectedHomeProgramDetails"
+            :key="activity.id"
+            class="home-program-card"
+          >
+            <div>
+              <span class="program-aspect">{{ homeProgramAspectLabel(activity.aspect) }}</span>
+              <h3>{{ activity.title }}</h3>
+            </div>
+            <small>{{ selectedHomeProgramDetailLabel }}</small>
+            <p>{{ activity.instruction }}</p>
+            <small v-if="activity.frequency">ความถี่: {{ activity.frequency }}</small>
+            <small v-if="activity.note">หมายเหตุ: {{ activity.note }}</small>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.development-page {
+  min-height: 100vh;
+  background: var(--admin-bg);
+}
+
+.development-shell {
+  width: min(1220px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 2.8rem) 0 4rem;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.55rem;
+  color: var(--admin-primary);
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  color: var(--admin-text);
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 3.6vw, 3.1rem);
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 1.08rem;
+}
+
+.page-subtitle {
+  margin-top: 0.55rem;
+  color: #858796;
+  font-weight: 650;
+}
+
+.user-chip {
+  max-width: 18rem;
+  overflow: hidden;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: #858796;
+  background: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 0.125rem 0.35rem rgb(58 59 69 / 0.1);
+}
+
+.icon-back-button {
+  display: inline-grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  color: var(--admin-primary);
+  background: #ffffff;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 0.125rem 0.35rem rgb(58 59 69 / 0.08);
+}
+
+.icon-back-button:hover,
+.icon-back-button:focus-visible {
+  border-color: rgb(78 115 223 / 0.42);
+  background: rgb(78 115 223 / 0.08);
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  background: #ffffff;
+  box-shadow: 0 0.15rem 1.75rem 0 rgb(58 59 69 / 0.12);
+}
+
+.summary-item {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.85rem 0.95rem;
+  border-left: 1px solid var(--admin-border);
+}
+
+.summary-item:first-child {
+  border-left: 0;
+}
+
+.summary-item span {
+  overflow: hidden;
+  color: #858796;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-item strong {
+  color: var(--admin-text);
+  font-size: 1.35rem;
+  line-height: 1.12;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.surface-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  background: #ffffff;
+  box-shadow: 0 0.15rem 1.75rem 0 rgb(58 59 69 / 0.12);
+}
+
+.kid-profile-collapsible {
+  margin-bottom: 1.25rem;
+}
+
+.kid-profile-collapsible summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  color: var(--admin-text);
+  background: #f8f9fc;
+  font-weight: 850;
+  cursor: pointer;
+  list-style: none;
+}
+
+.kid-profile-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.kid-profile-collapsible summary i {
+  color: #858796;
+  transition: transform 0.18s ease;
+}
+
+.kid-profile-collapsible[open] summary i {
+  transform: rotate(180deg);
+}
+
+.kid-profile-side-panel {
+  display: none;
+}
+
+.loading-panel,
+.empty-state {
+  padding: 2.5rem 1rem;
+  color: #858796;
+  text-align: center;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--admin-border);
+  background: #f8f9fc;
+}
+
+.panel-heading p {
+  margin-top: 0.25rem;
+  color: #858796;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.evaluation-action-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.evaluate-button {
+  min-height: 3rem;
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding-inline: 1.5rem;
+}
+
+.evaluation-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.home-program-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.home-program-panel > .home-program-form {
+  display: none;
+}
+
+.home-program-form--modal {
+  display: grid;
+  border-bottom: 0;
+}
+
+.evaluation-form label,
+.home-program-form label,
+.aspect-field label {
+  display: grid;
+  gap: 0.42rem;
+  color: var(--admin-text);
+  font-weight: 750;
+}
+
+.evaluation-form input[type="text"],
+.evaluation-form input:not([type]),
+.home-program-form input,
+.home-program-form select,
+.home-program-form textarea {
+  width: 100%;
+  border: 1px solid #d1d3e2;
+  border-radius: 0.35rem;
+  color: #6e707e;
+  background: #ffffff;
+}
+
+.evaluation-form input[type="text"],
+.evaluation-form input:not([type]),
+.home-program-form input,
+.home-program-form select {
+  height: 2.65rem;
+  padding: 0 0.8rem;
+}
+
+.home-program-form textarea {
+  min-height: 7rem;
+  resize: vertical;
+  padding: 0.75rem 0.8rem;
+  line-height: 1.65;
+}
+
+.aspect-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+}
+
+.aspect-field legend {
+  width: 100%;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.aspect-field legend small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #858796;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.aspect-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.aspect-field input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.session-preview {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 4.15rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  background: #ffffff;
+}
+
+.session-preview span {
+  color: #858796;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.session-preview strong {
+  color: var(--admin-text);
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.evaluation-modal-overlay {
+  position: fixed;
+  z-index: 5000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(31 41 55 / 0.48);
+  backdrop-filter: blur(4px);
+}
+
+.evaluation-modal {
+  width: min(46rem, 100%);
+  max-height: min(90vh, 48rem);
+  overflow: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1.5rem 4rem rgb(31 41 55 / 0.28);
+}
+
+.evaluation-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--admin-border);
+  background: #f8f9fc;
+}
+
+.evaluation-modal-header p:not(.eyebrow) {
+  margin-top: 0.3rem;
+  color: #858796;
+  font-weight: 700;
+}
+
+.modal-close-button {
+  display: inline-grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: #858796;
+  background: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close-button:hover {
+  color: var(--admin-primary);
+}
+
+.modal-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.profile-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+}
+
+.profile-list div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.profile-list dt {
+  color: #858796;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.profile-list dd {
+  margin: 0;
+  color: var(--admin-text);
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.evaluation-history {
+  grid-column: 1 / -1;
+  overflow-x: auto;
+}
+
+.home-program-panel {
+  display: none;
+  grid-column: 1 / -1;
+}
+
+.home-program-list {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.home-program-list--modal {
+  max-height: 28rem;
+  overflow: auto;
+}
+
+.home-program-card {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid rgb(209 211 226 / 0.85);
+  border-left: 0.25rem solid var(--admin-primary);
+  border-radius: 0.35rem;
+  padding: 0.9rem 1rem;
+  background: #ffffff;
+}
+
+.home-program-card h3,
+.home-program-card p {
+  margin: 0;
+}
+
+.home-program-card h3 {
+  color: var(--admin-text);
+  font-size: 1rem;
+}
+
+.home-program-card p {
+  color: #6e707e;
+  line-height: 1.7;
+}
+
+.home-program-card small {
+  color: #858796;
+  font-weight: 700;
+}
+
+.program-aspect {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 0.35rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--admin-border);
+  text-align: left;
+}
+
+th {
+  color: #858796;
+  background: #f8f9fc;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+td {
+  color: var(--admin-text);
+  font-weight: 650;
+}
+
+.result-pill {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.result-pill--pass {
+  color: #0f8057;
+  background: rgb(28 200 138 / 0.14);
+}
+
+.result-pill--fail {
+  color: #be2617;
+  background: rgb(231 74 59 / 0.14);
+}
+
+.table-action-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 11.5rem;
+}
+
+.table-action-button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(78 115 223 / 0.28);
+  border-radius: 0.35rem;
+  padding: 0 0.65rem;
+  color: var(--admin-primary);
+  background: rgb(78 115 223 / 0.08);
+  font-size: 0.82rem;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.table-action-button:first-child {
+  width: 3.6rem;
+}
+
+.table-action-button--detail {
+  width: 7.5rem;
+}
+
+.table-action-button:hover,
+.table-action-button:focus-visible {
+  border-color: rgb(78 115 223 / 0.5);
+  background: rgb(78 115 223 / 0.14);
+}
+
+.table-action-button--detail {
+  border-color: rgb(28 200 138 / 0.32);
+  color: #12845c;
+  background: rgb(28 200 138 / 0.1);
+}
+
+.table-action-button--detail:hover,
+.table-action-button--detail:focus-visible {
+  border-color: rgb(28 200 138 / 0.55);
+  background: rgb(28 200 138 / 0.16);
+}
+
+.table-action-button span {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #12845c;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+@media (max-width: 880px) {
+  .page-heading,
+  .content-grid,
+  .evaluation-action-panel,
+  .evaluation-form,
+  .home-program-form {
+    grid-template-columns: 1fr;
+  }
+
+  .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 680px) {
+  .development-shell {
+    width: min(100% - 1.25rem, 1220px);
+  }
+
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-item {
+    border-top: 1px solid var(--admin-border);
+    border-left: 0;
+  }
+
+  .summary-item:first-child {
+    border-top: 0;
+  }
+}
+</style>

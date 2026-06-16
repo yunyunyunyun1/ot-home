@@ -7,7 +7,7 @@ from sqlalchemy import text
 from app import crud, models
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
-from app.routers import auth
+from app.routers import auth, caregiver, case_manager
 
 
 @asynccontextmanager
@@ -18,6 +18,49 @@ async def lifespan(app: FastAPI):
             text(
                 "ALTER TABLE IF EXISTS village_volunteer_profiles "
                 "ALTER COLUMN license_id DROP NOT NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS kids "
+                "ADD COLUMN IF NOT EXISTS full_name VARCHAR(160)"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE kids "
+                "SET full_name = 'ไม่ระบุชื่อ' "
+                "WHERE full_name IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS kids "
+                "ALTER COLUMN full_name SET NOT NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS caregiver_kid_assignments "
+                "ADD COLUMN IF NOT EXISTS availability_slot_id UUID"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS denver_evaluations "
+                "ADD COLUMN IF NOT EXISTS assignment_id UUID"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS denver_evaluations "
+                "ADD COLUMN IF NOT EXISTS availability_slot_id UUID"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS denver_evaluations "
+                "ADD COLUMN IF NOT EXISTS therapy_session_id UUID"
             )
         )
     settings = get_settings()
@@ -46,6 +89,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(case_manager.router, prefix="/api/v1")
+app.include_router(caregiver.router, prefix="/api/v1")
 
 
 @app.get("/")
