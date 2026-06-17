@@ -17,6 +17,10 @@ export type KidResponse = {
     id: string
     full_name: string
   } | null
+  assigned_village_volunteers: {
+    id: string
+    full_name: string
+  }[]
   address: AddressPayload & {
     id: number
   }
@@ -165,8 +169,33 @@ export function assignKidToCaregiver(
   )
 }
 
+export function assignKidToVillageVolunteer(
+  kidId: string,
+  villageVolunteerId: string,
+): Promise<KidResponse> {
+  return apiPost<KidResponse, { kid_id: string; village_volunteer_id: string }>(
+    "/api/v1/case-manager/village-volunteer-assignments",
+    {
+      kid_id: kidId,
+      village_volunteer_id: villageVolunteerId,
+    },
+  )
+}
+
 export function listMyAssignedKids(): Promise<KidResponse[]> {
   return apiGet<KidResponse[]>("/api/v1/caregiver/kids")
+}
+
+export function listMyVillageVolunteerAssignedKids(): Promise<KidResponse[]> {
+  return apiGet<KidResponse[]>("/api/v1/village-volunteer/kids")
+}
+
+export function listVillageVolunteerHomeProgramActivities(
+  kidId: string,
+): Promise<HomeProgramActivityResponse[]> {
+  return apiGet<HomeProgramActivityResponse[]>(
+    `/api/v1/village-volunteer/kids/${kidId}/home-programs`,
+  )
 }
 
 export function listMyAvailabilitySlots(): Promise<CaregiverAvailabilitySlotResponse[]> {

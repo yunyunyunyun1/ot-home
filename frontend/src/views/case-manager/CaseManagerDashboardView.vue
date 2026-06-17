@@ -4,6 +4,7 @@ import { RouterLink } from "vue-router"
 
 import {
   assignKidToCaregiver,
+  assignKidToVillageVolunteer,
   createKid,
   deleteKid,
   getCaseManagerContext,
@@ -47,6 +48,7 @@ const villageVolunteers = ref<VillageVolunteerResponse[]>([])
 const managerProvince = ref("")
 const selectedKidId = ref("")
 const assigningCaregiverId = ref("")
+const assigningVillageVolunteerId = ref("")
 const selectedSlotByCaregiverId = ref<Record<string, string>>({})
 const editingKidId = ref("")
 const deletingKidId = ref("")
@@ -110,12 +112,30 @@ const matchedKidsCount = computed(() => {
   return kids.value.filter((kid) => kid.assigned_caregiver).length
 })
 
+const villageVolunteerMatchedKidsCount = computed(() => {
+  return kids.value.filter((kid) => kid.assigned_village_volunteers.length > 0).length
+})
+
 const openSlotCount = computed(() => {
   return caregivers.value.reduce((total, caregiver) => total + openSlots(caregiver).length, 0)
 })
 
 function caregiverAssignedCount(caregiverId: string): number {
   return kids.value.filter((kid) => kid.assigned_caregiver?.id === caregiverId).length
+}
+
+function villageVolunteerAssignedCount(villageVolunteerId: string): number {
+  return kids.value.filter((kid) =>
+    kid.assigned_village_volunteers.some((volunteer) => volunteer.id === villageVolunteerId),
+  ).length
+}
+
+function villageVolunteerNames(kid: KidResponse): string {
+  if (kid.assigned_village_volunteers.length === 0) {
+    return "ยังไม่จับคู่"
+  }
+
+  return kid.assigned_village_volunteers.map((volunteer) => volunteer.full_name).join(", ")
 }
 
 function openSlots(caregiver: CaregiverResponse) {
@@ -361,6 +381,31 @@ async function assignSelectedKid(caregiverId: string) {
   }
 }
 
+async function assignSelectedKidToVillageVolunteer(villageVolunteerId: string) {
+  if (!selectedKidId.value) {
+    errorMessage.value = "กรุณาเลือกเด็กก่อนจับคู่ผู้ดูแลเด็ก"
+    return
+  }
+
+  errorMessage.value = ""
+  successMessage.value = ""
+  assigningVillageVolunteerId.value = villageVolunteerId
+
+  try {
+    const updatedKid = await assignKidToVillageVolunteer(selectedKidId.value, villageVolunteerId)
+    kids.value = kids.value.map((kid) => (kid.id === updatedKid.id ? updatedKid : kid))
+    const assignedVolunteer = updatedKid.assigned_village_volunteers.find(
+      (volunteer) => volunteer.id === villageVolunteerId,
+    )
+    successMessage.value = `จับคู่ ${updatedKid.full_name} กับ ${assignedVolunteer?.full_name ?? "ผู้ดูแลเด็ก"} แล้ว`
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError ? error.message : "ไม่สามารถจับคู่ผู้ดูแลเด็กได้ กรุณาลองใหม่อีกครั้ง"
+  } finally {
+    assigningVillageVolunteerId.value = ""
+  }
+}
+
 onMounted(async () => {
   try {
     await loadCaseManagerContext()
@@ -415,6 +460,10 @@ onMounted(async () => {
           <div class="summary-item">
             <span>ผู้ดูแลเด็ก</span>
             <strong>{{ villageVolunteers.length }}</strong>
+          </div>
+          <div class="summary-item">
+            <span>จับคู่ผู้ดูแล</span>
+            <strong>{{ villageVolunteerMatchedKidsCount }}</strong>
           </div>
         </div>
       </div>
@@ -572,6 +621,7 @@ onMounted(async () => {
               <tr>
                 <th scope="col">ชื่อเด็ก</th>
                 <th scope="col">นักบำบัด</th>
+                <th scope="col">ผู้ดูแลเด็ก</th>
                 <th scope="col" class="actions-column"></th>
               </tr>
             </thead>
@@ -585,6 +635,14 @@ onMounted(async () => {
                       :class="kid.assigned_caregiver ? 'status-pill--success' : 'status-pill--neutral'"
                     >
                       {{ kid.assigned_caregiver?.full_name ?? "ยังไม่จับคู่" }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <span
+                      class="status-pill"
+                      :class="kid.assigned_village_volunteers.length ? 'status-pill--success' : 'status-pill--neutral'"
+                    >
+                      {{ villageVolunteerNames(kid) }}
                     </span>
                   </td>
                   <td class="actions-cell">
@@ -615,7 +673,7 @@ onMounted(async () => {
                   </td>
                 </tr>
                 <tr v-if="expandedKidIds.has(kid.id)" class="detail-row">
-                  <td colspan="3">
+                  <td colspan="4">
                     <span><strong>เลขประจำตัวประชาชน:</strong> {{ kid.thai_id_masked }}</span>
                     <span>
                       <strong>ที่อยู่:</strong>
@@ -726,6 +784,7 @@ onMounted(async () => {
             <div>
               <h2>ผู้ดูแลเด็กในพื้นที่</h2>
               <p>รายชื่อผู้ดูแลเด็กที่ลงทะเบียนในจังหวัด {{ managerProvince || "..." }}</p>
+              <p>{{ selectedKid ? `จับคู่เด็กที่เลือก: ${selectedKid.full_name}` : "เลือกเด็ก 1 คนเพื่อจับคู่ผู้ดูแลเด็ก" }}</p>
             </div>
             <button
               type="button"
@@ -747,8 +806,10 @@ onMounted(async () => {
             <thead>
               <tr>
                 <th scope="col">ชื่อผู้ดูแลเด็ก</th>
+                <th scope="col">เด็ก</th>
                 <th scope="col">สถานพยาบาล</th>
                 <th scope="col">ติดต่อ</th>
+                <th scope="col">จับคู่</th>
                 <th scope="col" class="actions-column"></th>
               </tr>
             </thead>
@@ -756,8 +817,19 @@ onMounted(async () => {
               <template v-for="volunteer in villageVolunteers" :key="volunteer.id">
                 <tr>
                   <td>{{ volunteer.full_name }}</td>
+                  <td><span class="count-pill">{{ villageVolunteerAssignedCount(volunteer.id) }}</span></td>
                   <td>{{ volunteer.hospital_or_clinic }}</td>
                   <td>{{ volunteer.phone || volunteer.email || "-" }}</td>
+                  <td class="actions-cell actions-cell--compact">
+                    <button
+                      type="button"
+                      class="assign-button"
+                      :disabled="!selectedKidId || assigningVillageVolunteerId === volunteer.id"
+                      @click="assignSelectedKidToVillageVolunteer(volunteer.id)"
+                    >
+                      {{ assigningVillageVolunteerId === volunteer.id ? "กำลังจับคู่" : "จับคู่" }}
+                    </button>
+                  </td>
                   <td class="actions-cell actions-cell--compact">
                     <button
                       type="button"
@@ -771,7 +843,7 @@ onMounted(async () => {
                   </td>
                 </tr>
                 <tr v-if="expandedVillageVolunteerIds.has(volunteer.id)" class="detail-row">
-                  <td colspan="4">
+                  <td colspan="6">
                     <span><strong>เลขประจำตัวประชาชน:</strong> {{ volunteer.thai_id_masked }}</span>
                     <span><strong>สถานพยาบาล:</strong> {{ volunteer.hospital_or_clinic }}</span>
                     <span v-if="volunteer.license_id">
@@ -906,7 +978,7 @@ h2 {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid rgb(219 231 245 / 0.92);
   border-radius: 0.8rem;
@@ -1422,18 +1494,25 @@ tbody tr:not(.detail-row):hover,
 
 .match-grid .table-panel:first-child th:nth-child(1),
 .match-grid .table-panel:first-child td:nth-child(1) {
-  width: 38%;
+  width: 24%;
 }
 
 .match-grid .table-panel:first-child th:nth-child(2),
 .match-grid .table-panel:first-child td:nth-child(2) {
-  width: 36%;
+  width: 26%;
   text-align: center;
 }
 
 .match-grid .table-panel:first-child th:nth-child(3),
 .match-grid .table-panel:first-child td:nth-child(3) {
   width: 26%;
+  text-align: center;
+}
+
+.match-grid .table-panel:first-child th:nth-child(4),
+.match-grid .table-panel:first-child td:nth-child(4) {
+  width: 24%;
+  text-align: right;
 }
 
 .match-grid .table-panel:nth-child(2) table {
@@ -1470,6 +1549,44 @@ tbody tr:not(.detail-row):hover,
 
 .match-grid .table-panel:nth-child(2) td:nth-child(5).actions-cell--compact {
   width: 24%;
+}
+
+.village-volunteer-panel table {
+  table-layout: fixed;
+  min-width: 62rem;
+}
+
+.village-volunteer-panel th:nth-child(1),
+.village-volunteer-panel td:nth-child(1) {
+  width: 22%;
+}
+
+.village-volunteer-panel th:nth-child(2),
+.village-volunteer-panel td:nth-child(2) {
+  width: 8%;
+  text-align: center;
+}
+
+.village-volunteer-panel th:nth-child(3),
+.village-volunteer-panel td:nth-child(3) {
+  width: 24%;
+}
+
+.village-volunteer-panel th:nth-child(4),
+.village-volunteer-panel td:nth-child(4) {
+  width: 20%;
+}
+
+.village-volunteer-panel th:nth-child(5),
+.village-volunteer-panel td:nth-child(5) {
+  width: 11%;
+  text-align: right;
+}
+
+.village-volunteer-panel th:nth-child(6),
+.village-volunteer-panel td:nth-child(6) {
+  width: 15%;
+  text-align: right;
 }
 
 .empty-state {

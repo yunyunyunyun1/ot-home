@@ -81,3 +81,12 @@ def require_caregiver(current_user: models.User = Depends(get_current_user)) -> 
             detail="Caregiver access required",
         )
     return current_user
+
+
+def require_village_volunteer(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != models.UserRole.VILLAGE_VOLUNTEER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Village volunteer access required",
+        )
+    return current_user

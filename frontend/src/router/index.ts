@@ -75,8 +75,7 @@ const router = createRouter({
     {
       path: '/village-volunteer',
       name: 'village-volunteer-home',
-      component: () => import('../views/role/RoleBlankView.vue'),
-      props: { title: 'ผู้ดูแลเด็ก' },
+      component: () => import('../views/village-volunteer/VillageVolunteerDashboardView.vue'),
       meta: { requiresAuth: true, roles: ['village_volunteer'] },
     },
   ],

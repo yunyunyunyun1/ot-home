@@ -72,6 +72,10 @@ class User(Base):
         back_populates="caregiver",
         foreign_keys="CaregiverKidAssignment.caregiver_id",
     )
+    village_volunteer_assignments: Mapped[list["VillageVolunteerKidAssignment"]] = relationship(
+        back_populates="village_volunteer",
+        foreign_keys="VillageVolunteerKidAssignment.village_volunteer_id",
+    )
     availability_slots: Mapped[list["CaregiverAvailabilitySlot"]] = relationship(
         back_populates="caregiver",
         cascade="all, delete-orphan",
@@ -174,6 +178,10 @@ class Kid(Base):
         back_populates="kid",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    village_volunteer_assignments: Mapped[list["VillageVolunteerKidAssignment"]] = relationship(
+        back_populates="kid",
+        cascade="all, delete-orphan",
     )
     denver_evaluations: Mapped[list["DenverEvaluation"]] = relationship(
         back_populates="kid",
@@ -368,6 +376,40 @@ class CaregiverKidAssignment(Base):
     availability_slot: Mapped["CaregiverAvailabilitySlot | None"] = relationship(
         back_populates="assignment",
     )
+
+
+class VillageVolunteerKidAssignment(Base):
+    __tablename__ = "village_volunteer_kid_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "kid_id",
+            "village_volunteer_id",
+            name="uq_village_volunteer_kid_assignments_pair",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    kid_id: Mapped[UUID] = mapped_column(ForeignKey("kids.id"), nullable=False)
+    village_volunteer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    assigned_by_case_manager_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    kid: Mapped[Kid] = relationship(back_populates="village_volunteer_assignments")
+    village_volunteer: Mapped[User] = relationship(
+        back_populates="village_volunteer_assignments",
+        foreign_keys=[village_volunteer_id],
+    )
+    assigned_by_case_manager: Mapped[User] = relationship(foreign_keys=[assigned_by_case_manager_id])
 
 
 class CaregiverAvailabilitySlot(Base):

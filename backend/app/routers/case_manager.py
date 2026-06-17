@@ -207,3 +207,32 @@ def assign_kid_to_caregiver(
     crud.create_therapy_session(db, kid, caregiver, case_manager, availability_slot)
     db.refresh(kid)
     return kid_to_read(kid)
+
+
+@router.post("/village-volunteer-assignments", response_model=schemas.KidRead)
+def assign_kid_to_village_volunteer(
+    assignment_in: schemas.VillageVolunteerKidAssignmentCreate,
+    case_manager: models.User = Depends(require_case_manager),
+    db: Session = Depends(get_db),
+):
+    case_manager_province = _get_case_manager_province(case_manager)
+    kid = _get_kid_in_case_manager_province(assignment_in.kid_id, case_manager, db)
+
+    village_volunteer = crud.get_village_volunteer_by_id(
+        db,
+        assignment_in.village_volunteer_id,
+    )
+    if village_volunteer is None or village_volunteer.village_volunteer_profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Village volunteer not found",
+        )
+    if village_volunteer.village_volunteer_profile.address.province != case_manager_province:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Village volunteer is outside your responsible province",
+        )
+
+    crud.assign_kid_to_village_volunteer(db, kid, village_volunteer, case_manager)
+    db.refresh(kid)
+    return kid_to_read(kid)

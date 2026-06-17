@@ -7,7 +7,7 @@ from sqlalchemy import text
 from app import crud, models
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
-from app.routers import auth, caregiver, case_manager
+from app.routers import auth, caregiver, case_manager, village_volunteer
 
 
 @asynccontextmanager
@@ -63,6 +63,28 @@ async def lifespan(app: FastAPI):
                 "ADD COLUMN IF NOT EXISTS therapy_session_id UUID"
             )
         )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS village_volunteer_kid_assignments "
+                "DROP CONSTRAINT IF EXISTS village_volunteer_kid_assignments_kid_id_key"
+            )
+        )
+        connection.execute(
+            text(
+                "DO $$ BEGIN "
+                "IF EXISTS ("
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_name = 'village_volunteer_kid_assignments'"
+                ") AND NOT EXISTS ("
+                "SELECT 1 FROM pg_constraint "
+                "WHERE conname = 'uq_village_volunteer_kid_assignments_pair'"
+                ") THEN "
+                "ALTER TABLE village_volunteer_kid_assignments "
+                "ADD CONSTRAINT uq_village_volunteer_kid_assignments_pair "
+                "UNIQUE (kid_id, village_volunteer_id); "
+                "END IF; END $$;"
+            )
+        )
     settings = get_settings()
     if settings.first_admin_thai_id and settings.first_admin_password:
         with SessionLocal() as db:
@@ -91,6 +113,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(case_manager.router, prefix="/api/v1")
 app.include_router(caregiver.router, prefix="/api/v1")
+app.include_router(village_volunteer.router, prefix="/api/v1")
 
 
 @app.get("/")

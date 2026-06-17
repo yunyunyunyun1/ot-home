@@ -121,12 +121,18 @@ class AssignedCaregiverRead(BaseModel):
     full_name: str
 
 
+class AssignedVillageVolunteerRead(BaseModel):
+    id: UUID
+    full_name: str
+
+
 class KidRead(BaseModel):
     id: UUID
     thai_id_masked: str
     full_name: str
     address: AddressRead
     assigned_caregiver: AssignedCaregiverRead | None
+    assigned_village_volunteers: list[AssignedVillageVolunteerRead] = Field(default_factory=list)
     created_by_case_manager_id: UUID
     created_at: datetime
     updated_at: datetime
@@ -136,6 +142,11 @@ class KidAssignmentCreate(BaseModel):
     kid_id: UUID
     caregiver_id: UUID
     availability_slot_id: UUID
+
+
+class VillageVolunteerKidAssignmentCreate(BaseModel):
+    kid_id: UUID
+    village_volunteer_id: UUID
 
 
 class CaseManagerContextRead(BaseModel):

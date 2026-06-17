@@ -21,6 +21,13 @@ def kid_to_read(kid: models.Kid) -> schemas.KidRead:
             id=kid.caregiver_assignment.caregiver.id,
             full_name=kid.caregiver_assignment.caregiver.full_name,
         )
+    assigned_village_volunteers = [
+        schemas.AssignedVillageVolunteerRead(
+            id=assignment.village_volunteer.id,
+            full_name=assignment.village_volunteer.full_name,
+        )
+        for assignment in kid.village_volunteer_assignments
+    ]
 
     return schemas.KidRead(
         id=kid.id,
@@ -28,6 +35,7 @@ def kid_to_read(kid: models.Kid) -> schemas.KidRead:
         full_name=kid.full_name,
         address=schemas.AddressRead.model_validate(kid.address),
         assigned_caregiver=assigned_caregiver,
+        assigned_village_volunteers=assigned_village_volunteers,
         created_by_case_manager_id=kid.created_by_case_manager_id,
         created_at=kid.created_at,
         updated_at=kid.updated_at,

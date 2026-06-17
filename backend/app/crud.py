@@ -137,6 +137,16 @@ def get_caregiver_by_id(db: Session, caregiver_id: UUID) -> models.User | None:
     return db.scalar(statement)
 
 
+def get_village_volunteer_by_id(db: Session, village_volunteer_id: UUID) -> models.User | None:
+    statement = (
+        select(models.User)
+        .join(models.User.village_volunteer_profile)
+        .where(models.User.id == village_volunteer_id)
+        .where(models.User.role == models.UserRole.VILLAGE_VOLUNTEER)
+    )
+    return db.scalar(statement)
+
+
 def create_kid(
     db: Session,
     kid_in: schemas.KidCreate,
@@ -325,6 +335,35 @@ def assign_kid_to_caregiver(
     return assignment
 
 
+def assign_kid_to_village_volunteer(
+    db: Session,
+    kid: models.Kid,
+    village_volunteer: models.User,
+    case_manager: models.User,
+) -> models.VillageVolunteerKidAssignment:
+    assignment = next(
+        (
+            existing_assignment
+            for existing_assignment in kid.village_volunteer_assignments
+            if existing_assignment.village_volunteer_id == village_volunteer.id
+        ),
+        None,
+    )
+    if assignment is None:
+        assignment = models.VillageVolunteerKidAssignment(
+            kid=kid,
+            village_volunteer=village_volunteer,
+            assigned_by_case_manager=case_manager,
+        )
+        db.add(assignment)
+    else:
+        assignment.assigned_by_case_manager = case_manager
+
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+
 def list_therapy_sessions_for_kid_on_date(
     db: Session,
     kid: models.Kid,
@@ -386,6 +425,37 @@ def get_kid_for_caregiver(
         .join(models.Kid.caregiver_assignment)
         .where(models.Kid.id == kid_id)
         .where(models.CaregiverKidAssignment.caregiver_id == caregiver.id)
+    )
+    return db.scalar(statement)
+
+
+def list_kids_for_village_volunteer(
+    db: Session,
+    village_volunteer: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.Kid]:
+    statement = (
+        select(models.Kid)
+        .join(models.Kid.village_volunteer_assignments)
+        .where(models.VillageVolunteerKidAssignment.village_volunteer_id == village_volunteer.id)
+        .order_by(models.Kid.full_name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def get_kid_for_village_volunteer(
+    db: Session,
+    kid_id: UUID,
+    village_volunteer: models.User,
+) -> models.Kid | None:
+    statement = (
+        select(models.Kid)
+        .join(models.Kid.village_volunteer_assignments)
+        .where(models.Kid.id == kid_id)
+        .where(models.VillageVolunteerKidAssignment.village_volunteer_id == village_volunteer.id)
     )
     return db.scalar(statement)
 
@@ -500,6 +570,51 @@ def list_home_program_activities_for_kid(
         select(models.HomeProgramActivity)
         .where(models.HomeProgramActivity.kid_id == kid.id)
         .where(models.HomeProgramActivity.caregiver_id == caregiver.id)
+        .order_by(models.HomeProgramActivity.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def list_latest_home_program_activities_for_kid(
+    db: Session,
+    kid: models.Kid,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.HomeProgramActivity]:
+    latest_evaluation_id = db.scalar(
+        select(models.HomeProgramActivity.evaluation_id)
+        .join(models.HomeProgramActivity.evaluation)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .where(models.HomeProgramActivity.evaluation_id.is_not(None))
+        .order_by(models.DenverEvaluation.created_at.desc())
+        .limit(1)
+    )
+    if latest_evaluation_id is not None:
+        statement = (
+            select(models.HomeProgramActivity)
+            .where(models.HomeProgramActivity.kid_id == kid.id)
+            .where(models.HomeProgramActivity.evaluation_id == latest_evaluation_id)
+            .order_by(models.HomeProgramActivity.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(db.scalars(statement).all())
+
+    latest_created_at = db.scalar(
+        select(models.HomeProgramActivity.created_at)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .order_by(models.HomeProgramActivity.created_at.desc())
+        .limit(1)
+    )
+    if latest_created_at is None:
+        return []
+
+    statement = (
+        select(models.HomeProgramActivity)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .where(models.HomeProgramActivity.created_at == latest_created_at)
         .order_by(models.HomeProgramActivity.created_at.desc())
         .offset(skip)
         .limit(limit)
