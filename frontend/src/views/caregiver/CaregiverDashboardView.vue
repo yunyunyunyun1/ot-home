@@ -18,6 +18,7 @@ const authStore = useAuthStore()
 const kids = ref<KidResponse[]>([])
 const availabilitySlots = ref<CaregiverAvailabilitySlotResponse[]>([])
 const expandedKidIds = ref<Set<string>>(new Set())
+const childSearchTerm = ref('')
 const isLoading = ref(false)
 const isLoadingAvailability = ref(false)
 const isSubmittingAvailability = ref(false)
@@ -46,6 +47,17 @@ const visibleAvailabilitySlots = computed(() => {
 
 const bookedAvailabilityCount = computed(() => {
   return availabilitySlots.value.filter((slot) => slot.is_booked).length
+})
+
+const filteredKids = computed(() => {
+  const normalizedSearchTerm = childSearchTerm.value.trim().toLocaleLowerCase('th-TH')
+  if (!normalizedSearchTerm) {
+    return kids.value
+  }
+
+  return kids.value.filter((kid) => {
+    return kid.full_name.toLocaleLowerCase('th-TH').includes(normalizedSearchTerm)
+  })
 })
 
 function sortSlots(slots: CaregiverAvailabilitySlotResponse[]) {
@@ -274,7 +286,13 @@ onMounted(async () => {
             </button>
           </div>
 
+          <label class="search-field">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input v-model="childSearchTerm" type="search" placeholder="ค้นหาชื่อเด็ก" />
+          </label>
+
           <div v-if="kids.length === 0" class="empty-state">ยังไม่มีเด็กที่ได้รับมอบหมาย</div>
+          <div v-else-if="filteredKids.length === 0" class="empty-state">ไม่พบชื่อเด็กที่ค้นหา</div>
 
           <table v-else>
             <thead>
@@ -284,7 +302,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <template v-for="kid in kids" :key="kid.id">
+              <template v-for="kid in filteredKids" :key="kid.id">
                 <tr>
                   <td>
                     <span class="kid-name">
