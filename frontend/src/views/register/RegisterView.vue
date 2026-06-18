@@ -1,22 +1,22 @@
 <script setup lang="ts">
 const roles = [
   {
-    title: "ผู้ปกครอง",
-    description: "สำหรับผู้ปกครองที่ต้องการติดตามข้อมูลและบันทึกการดูแลเด็กที่บ้าน",
-    path: "/register/parent",
-    accent: "parent",
+    title: 'ผู้ปกครอง',
+    description: 'สำหรับผู้ปกครองที่ต้องการติดตามข้อมูลและบันทึกการดูแลเด็กที่บ้าน',
+    path: '/register/parent',
+    accent: 'parent',
   },
   {
-    title: "นักกิจกรรมบำบัด",
-    description: "สำหรับนักกิจกรรมบำบัดหรือผู้เชี่ยวชาญที่ดูแลและบันทึกแผนการบำบัด",
-    path: "/register/caregiver",
-    accent: "caregiver",
+    title: 'นักกิจกรรมบำบัด',
+    description: 'สำหรับนักกิจกรรมบำบัดหรือผู้เชี่ยวชาญที่ดูแลและบันทึกแผนการบำบัด',
+    path: '/register/caregiver',
+    accent: 'caregiver',
   },
   {
-    title: "ผู้ดูแลเด็ก",
-    description: "สำหรับผู้ดูแลในชุมชนหรืออสม. ที่ช่วยติดตามและส่งต่อข้อมูลการดูแล",
-    path: "/register/village-volunteer",
-    accent: "volunteer",
+    title: 'ผู้ดูแลเด็ก',
+    description: 'สำหรับผู้ดูแลในชุมชนหรืออสม. ที่ช่วยติดตามและส่งต่อข้อมูลการดูแล',
+    path: '/register/village-volunteer',
+    accent: 'volunteer',
   },
 ]
 </script>
@@ -38,22 +38,11 @@ const roles = [
     <section class="register-shell" aria-labelledby="register-title">
       <div class="page-heading">
         <h1 id="register-title">เลือกประเภทบัญชี</h1>
-        <p>
-          เลือกบทบาทที่ตรงกับการใช้งานของท่าน
-
-
-
-          
-        </p>
+        <p>เลือกบทบาทที่ตรงกับการใช้งานของท่าน</p>
       </div>
 
       <div class="role-grid">
-        <RouterLink
-          v-for="role in roles"
-          :key="role.path"
-          class="role-card"
-          :to="role.path"
-        >
+        <RouterLink v-for="role in roles" :key="role.path" class="role-card" :to="role.path">
           <span class="role-content">
             <strong>{{ role.title }}</strong>
             <span>{{ role.description }}</span>
@@ -72,7 +61,12 @@ const roles = [
   overflow: hidden;
   background:
     radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      var(--color-background) 46%,
+      var(--color-background-soft) 100%
+    );
 }
 
 .register-page::before {
@@ -116,7 +110,7 @@ const roles = [
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {

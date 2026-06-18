@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
-import { RouterLink } from "vue-router"
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import { ApiError } from "../../api/client"
+import { ApiError } from '../../api/client'
 import {
   createAvailabilitySlot,
   deleteAvailabilitySlot,
@@ -11,8 +11,8 @@ import {
   updateAvailabilitySlot,
   type CaregiverAvailabilitySlotResponse,
   type KidResponse,
-} from "../../api/kids"
-import { useAuthStore } from "../../stores/auth"
+} from '../../api/kids'
+import { useAuthStore } from '../../stores/auth'
 
 const authStore = useAuthStore()
 const kids = ref<KidResponse[]>([])
@@ -21,19 +21,19 @@ const expandedKidIds = ref<Set<string>>(new Set())
 const isLoading = ref(false)
 const isLoadingAvailability = ref(false)
 const isSubmittingAvailability = ref(false)
-const editingSlotId = ref("")
-const deletingSlotId = ref("")
-const errorMessage = ref("")
-const availabilityMessage = ref("")
+const editingSlotId = ref('')
+const deletingSlotId = ref('')
+const errorMessage = ref('')
+const availabilityMessage = ref('')
 const availabilityForm = ref({
-  available_date: "",
-  start_time: "",
-  end_time: "",
+  available_date: '',
+  start_time: '',
+  end_time: '',
 })
 const editAvailabilityForm = ref({
-  available_date: "",
-  start_time: "",
-  end_time: "",
+  available_date: '',
+  start_time: '',
+  end_time: '',
 })
 
 const openAvailabilityCount = computed(() => {
@@ -66,13 +66,13 @@ function toggleKidDetails(kidId: string) {
 
 async function loadKids() {
   isLoading.value = true
-  errorMessage.value = ""
+  errorMessage.value = ''
 
   try {
     kids.value = await listMyAssignedKids()
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถโหลดรายชื่อเด็กได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถโหลดรายชื่อเด็กได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isLoading.value = false
   }
@@ -80,35 +80,35 @@ async function loadKids() {
 
 async function loadAvailability() {
   isLoadingAvailability.value = true
-  errorMessage.value = ""
+  errorMessage.value = ''
 
   try {
     availabilitySlots.value = await listMyAvailabilitySlots()
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถโหลดเวลาว่างได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถโหลดเวลาว่างได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isLoadingAvailability.value = false
   }
 }
 
 async function submitAvailability() {
-  errorMessage.value = ""
-  availabilityMessage.value = ""
+  errorMessage.value = ''
+  availabilityMessage.value = ''
   isSubmittingAvailability.value = true
 
   try {
     const slot = await createAvailabilitySlot(availabilityForm.value)
     availabilitySlots.value = sortSlots([...availabilitySlots.value, slot])
     availabilityForm.value = {
-      available_date: "",
-      start_time: "",
-      end_time: "",
+      available_date: '',
+      start_time: '',
+      end_time: '',
     }
-    availabilityMessage.value = "เพิ่มเวลาว่างแล้ว"
+    availabilityMessage.value = 'เพิ่มเวลาว่างแล้ว'
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถเพิ่มเวลาว่างได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถเพิ่มเวลาว่างได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmittingAvailability.value = false
   }
@@ -121,22 +121,22 @@ function startEditSlot(slot: CaregiverAvailabilitySlotResponse) {
     start_time: slot.start_time.slice(0, 5),
     end_time: slot.end_time.slice(0, 5),
   }
-  availabilityMessage.value = ""
-  errorMessage.value = ""
+  availabilityMessage.value = ''
+  errorMessage.value = ''
 }
 
 function cancelEditSlot() {
-  editingSlotId.value = ""
+  editingSlotId.value = ''
   editAvailabilityForm.value = {
-    available_date: "",
-    start_time: "",
-    end_time: "",
+    available_date: '',
+    start_time: '',
+    end_time: '',
   }
 }
 
 async function submitSlotUpdate(slotId: string) {
-  errorMessage.value = ""
-  availabilityMessage.value = ""
+  errorMessage.value = ''
+  availabilityMessage.value = ''
   isSubmittingAvailability.value = true
 
   try {
@@ -145,18 +145,18 @@ async function submitSlotUpdate(slotId: string) {
       availabilitySlots.value.map((slot) => (slot.id === updatedSlot.id ? updatedSlot : slot)),
     )
     cancelEditSlot()
-    availabilityMessage.value = "แก้ไขเวลาว่างแล้ว"
+    availabilityMessage.value = 'แก้ไขเวลาว่างแล้ว'
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถแก้ไขเวลาว่างได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถแก้ไขเวลาว่างได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmittingAvailability.value = false
   }
 }
 
 async function removeSlot(slotId: string) {
-  errorMessage.value = ""
-  availabilityMessage.value = ""
+  errorMessage.value = ''
+  availabilityMessage.value = ''
   deletingSlotId.value = slotId
 
   try {
@@ -165,12 +165,12 @@ async function removeSlot(slotId: string) {
     if (editingSlotId.value === slotId) {
       cancelEditSlot()
     }
-    availabilityMessage.value = "ลบเวลาว่างแล้ว"
+    availabilityMessage.value = 'ลบเวลาว่างแล้ว'
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถลบเวลาว่างได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถลบเวลาว่างได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
-    deletingSlotId.value = ""
+    deletingSlotId.value = ''
   }
 }
 
@@ -188,7 +188,14 @@ onMounted(async () => {
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <div class="user-chip">{{ authStore.user?.full_name ?? "นักบำบัด" }}</div>
+      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
+        <img
+          v-if="authStore.user?.profile_image_data"
+          :src="authStore.user.profile_image_data"
+          alt=""
+        />
+        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
+      </RouterLink>
     </nav>
 
     <section class="dashboard-shell" aria-labelledby="caregiver-title">
@@ -239,184 +246,185 @@ onMounted(async () => {
           </label>
 
           <button class="primary-action" type="submit" :disabled="isSubmittingAvailability">
-            {{ isSubmittingAvailability ? "กำลังเพิ่ม..." : "เพิ่มเวลาว่าง" }}
+            {{ isSubmittingAvailability ? 'กำลังเพิ่ม...' : 'เพิ่มเวลาว่าง' }}
           </button>
         </form>
 
-        <p v-if="availabilityMessage" class="form-alert form-alert--success">{{ availabilityMessage }}</p>
+        <p v-if="availabilityMessage" class="form-alert form-alert--success">
+          {{ availabilityMessage }}
+        </p>
       </section>
 
       <div class="dashboard-grid">
-      <section class="table-panel" aria-label="ตารางเด็กที่ได้รับมอบหมาย">
-        <div class="list-header">
-          <div>
-            <h2>รายชื่อเด็ก</h2>
-            <p>เด็กทั้งหมดที่ Case Manager จับคู่ให้คุณ</p>
+        <section class="table-panel" aria-label="ตารางเด็กที่ได้รับมอบหมาย">
+          <div class="list-header">
+            <div>
+              <h2>รายชื่อเด็ก</h2>
+              <p>เด็กทั้งหมดที่ Case Manager จับคู่ให้คุณ</p>
+            </div>
+            <button
+              type="button"
+              class="refresh-button"
+              :class="{ 'is-loading': isLoading }"
+              :disabled="isLoading"
+              aria-label="รีเฟรชรายชื่อเด็ก"
+              @click="loadKids"
+            >
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+            </button>
           </div>
-          <button
-            type="button"
-            class="refresh-button"
-            :class="{ 'is-loading': isLoading }"
-            :disabled="isLoading"
-            aria-label="รีเฟรชรายชื่อเด็ก"
-            @click="loadKids"
-          >
-            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-          </button>
-        </div>
 
-        <div v-if="kids.length === 0" class="empty-state">
-          ยังไม่มีเด็กที่ได้รับมอบหมาย
-        </div>
+          <div v-if="kids.length === 0" class="empty-state">ยังไม่มีเด็กที่ได้รับมอบหมาย</div>
 
-        <table v-else>
-          <thead>
-            <tr>
-              <th scope="col">ชื่อเด็ก</th>
-              <th scope="col">เลขประชาชน</th>
-              
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="kid in kids" :key="kid.id">
+          <table v-else>
+            <thead>
               <tr>
-                <td>
-                  <span class="kid-name">
-                    {{ kid.full_name }}
-                  </span>
-                </td>
-                <td>{{ kid.thai_id_masked }}</td>
-                <td class="actions-cell">
-                  <RouterLink
-                    class="row-link-button"
-                    :to="{ name: 'caregiver-kid-development', params: { kidId: kid.id } }"
-                  >
-                    ผลประเมิน
-                  </RouterLink>
-                  <button
-                    type="button"
-                    class="icon-toggle-button"
-                    :aria-expanded="expandedKidIds.has(kid.id)"
-                    @click="toggleKidDetails(kid.id)"
-                  >
-                    {{ expandedKidIds.has(kid.id) ? "ซ่อน" : "ดู" }}
-                  </button>
-                </td>
+                <th scope="col">ชื่อเด็ก</th>
+                <th scope="col">เลขประชาชน</th>
               </tr>
-              <tr v-if="expandedKidIds.has(kid.id)" class="detail-row">
-                <td colspan="3">
-                  <span>{{ kid.address.subdistrict }}, {{ kid.address.district }}, {{ kid.address.province }}</span>
-                  <span>รหัสไปรษณีย์ {{ kid.address.postal_code }}</span>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody>
+              <template v-for="kid in kids" :key="kid.id">
+                <tr>
+                  <td>
+                    <span class="kid-name">
+                      {{ kid.full_name }}
+                    </span>
+                  </td>
+                  <td>{{ kid.thai_id_masked }}</td>
+                  <td class="actions-cell">
+                    <RouterLink
+                      class="row-link-button"
+                      :to="{ name: 'caregiver-kid-development', params: { kidId: kid.id } }"
+                    >
+                      ผลประเมิน
+                    </RouterLink>
+                    <button
+                      type="button"
+                      class="icon-toggle-button"
+                      :aria-expanded="expandedKidIds.has(kid.id)"
+                      @click="toggleKidDetails(kid.id)"
+                    >
+                      {{ expandedKidIds.has(kid.id) ? 'ซ่อน' : 'ดู' }}
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="expandedKidIds.has(kid.id)" class="detail-row">
+                  <td colspan="3">
+                    <span
+                      >{{ kid.address.subdistrict }}, {{ kid.address.district }},
+                      {{ kid.address.province }}</span
+                    >
+                    <span>รหัสไปรษณีย์ {{ kid.address.postal_code }}</span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </section>
 
-      <section class="table-panel" aria-label="ตารางเวลาว่าง">
-        <div class="list-header">
-          <div>
-            <h2>ตารางเวลาว่าง</h2>
-            <p>ช่วงเวลาที่เปิดให้ Case Manager จับคู่</p>
+        <section class="table-panel" aria-label="ตารางเวลาว่าง">
+          <div class="list-header">
+            <div>
+              <h2>ตารางเวลาว่าง</h2>
+              <p>ช่วงเวลาที่เปิดให้ Case Manager จับคู่</p>
+            </div>
+            <button
+              type="button"
+              class="refresh-button"
+              :class="{ 'is-loading': isLoadingAvailability }"
+              :disabled="isLoadingAvailability"
+              aria-label="รีเฟรชตารางเวลาว่าง"
+              @click="loadAvailability"
+            >
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+            </button>
           </div>
-          <button
-            type="button"
-            class="refresh-button"
-            :class="{ 'is-loading': isLoadingAvailability }"
-            :disabled="isLoadingAvailability"
-            aria-label="รีเฟรชตารางเวลาว่าง"
-            @click="loadAvailability"
-          >
-            <i
-              class="bi bi-arrow-clockwise"
-              aria-hidden="true"
-            ></i>
-          </button>
-        </div>
 
-        <div v-if="visibleAvailabilitySlots.length === 0" class="empty-state">
-          ยังไม่มีเวลาว่าง
-        </div>
+          <div v-if="visibleAvailabilitySlots.length === 0" class="empty-state">
+            ยังไม่มีเวลาว่าง
+          </div>
 
-        <table v-else>
-          <thead>
-            <tr>
-              <th scope="col">วันที่</th>
-              <th scope="col">เวลา</th>
-              <th scope="col">สถานะ</th>
-              <th scope="col">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="slot in visibleAvailabilitySlots" :key="slot.id">
-              <td>
-                <input
-                  v-if="editingSlotId === slot.id"
-                  v-model="editAvailabilityForm.available_date"
-                  class="inline-input"
-                  type="date"
-                  required
-                />
-                <span v-else>{{ slot.available_date }}</span>
-              </td>
-              <td>
-                <div v-if="editingSlotId === slot.id" class="inline-time">
+          <table v-else>
+            <thead>
+              <tr>
+                <th scope="col">วันที่</th>
+                <th scope="col">เวลา</th>
+                <th scope="col">สถานะ</th>
+                <th scope="col">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="slot in visibleAvailabilitySlots" :key="slot.id">
+                <td>
                   <input
-                    v-model="editAvailabilityForm.start_time"
+                    v-if="editingSlotId === slot.id"
+                    v-model="editAvailabilityForm.available_date"
                     class="inline-input"
-                    type="time"
+                    type="date"
                     required
                   />
-                  <input
-                    v-model="editAvailabilityForm.end_time"
-                    class="inline-input"
-                    type="time"
-                    required
-                  />
-                </div>
-                <span v-else>{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}</span>
-              </td>
-              <td>{{ slot.is_booked ? `จองแล้ว: ${slot.assigned_kid_name}` : "ว่าง" }}</td>
-              <td>
-                <div class="row-actions">
-                  <template v-if="editingSlotId === slot.id">
-                    <button
-                      type="button"
-                      class="text-button"
-                      :disabled="isSubmittingAvailability"
-                      @click="submitSlotUpdate(slot.id)"
-                    >
-                      บันทึก
-                    </button>
-                    <button type="button" class="text-button" @click="cancelEditSlot">
-                      ยกเลิก
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button
-                      type="button"
-                      class="text-button"
-                      :disabled="slot.is_booked"
-                      @click="startEditSlot(slot)"
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      type="button"
-                      class="danger-button"
-                      :disabled="slot.is_booked || deletingSlotId === slot.id"
-                      @click="removeSlot(slot.id)"
-                    >
-                      {{ deletingSlotId === slot.id ? "กำลังลบ" : "ลบ" }}
-                    </button>
-                  </template>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+                  <span v-else>{{ slot.available_date }}</span>
+                </td>
+                <td>
+                  <div v-if="editingSlotId === slot.id" class="inline-time">
+                    <input
+                      v-model="editAvailabilityForm.start_time"
+                      class="inline-input"
+                      type="time"
+                      required
+                    />
+                    <input
+                      v-model="editAvailabilityForm.end_time"
+                      class="inline-input"
+                      type="time"
+                      required
+                    />
+                  </div>
+                  <span v-else
+                    >{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}</span
+                  >
+                </td>
+                <td>{{ slot.is_booked ? `จองแล้ว: ${slot.assigned_kid_name}` : 'ว่าง' }}</td>
+                <td>
+                  <div class="row-actions">
+                    <template v-if="editingSlotId === slot.id">
+                      <button
+                        type="button"
+                        class="text-button"
+                        :disabled="isSubmittingAvailability"
+                        @click="submitSlotUpdate(slot.id)"
+                      >
+                        บันทึก
+                      </button>
+                      <button type="button" class="text-button" @click="cancelEditSlot">
+                        ยกเลิก
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        type="button"
+                        class="text-button"
+                        :disabled="slot.is_booked"
+                        @click="startEditSlot(slot)"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        type="button"
+                        class="danger-button"
+                        :disabled="slot.is_booked || deletingSlotId === slot.id"
+                        @click="removeSlot(slot.id)"
+                      >
+                        {{ deletingSlotId === slot.id ? 'กำลังลบ' : 'ลบ' }}
+                      </button>
+                    </template>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
       </div>
     </section>
   </main>
@@ -427,7 +435,12 @@ onMounted(async () => {
   min-height: 100vh;
   background:
     radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      var(--color-background) 46%,
+      var(--color-background-soft) 100%
+    );
 }
 
 .top-nav,
@@ -468,7 +481,7 @@ onMounted(async () => {
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {
@@ -776,11 +789,11 @@ td {
   height: 0.5rem;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
-  content: "";
+  content: '';
   transform: translateY(-0.12rem) rotate(45deg);
 }
 
-.icon-toggle-button[aria-expanded="true"]::before {
+.icon-toggle-button[aria-expanded='true']::before {
   transform: translateY(0.12rem) rotate(225deg);
 }
 

@@ -1,12 +1,12 @@
-import { defineStore } from "pinia"
-import { ref } from "vue"
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
 
-import type { UserResponse } from "../api/auth"
+import type { UserResponse } from '../api/auth'
 
-export const TOKEN_STORAGE_KEY = "ot_at_home_access_token"
-export const USER_STORAGE_KEY = "ot_at_home_user"
+export const TOKEN_STORAGE_KEY = 'ot_at_home_access_token'
+export const USER_STORAGE_KEY = 'ot_at_home_user'
 
-export const useAuthStore = defineStore("auth", () => {
+export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_STORAGE_KEY))
   const user = ref<UserResponse | null>(getStoredUser())
 
@@ -31,6 +31,11 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser))
   }
 
+  function setUser(currentUser: UserResponse) {
+    user.value = currentUser
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser))
+  }
+
   function clearSession() {
     token.value = null
     user.value = null
@@ -42,6 +47,7 @@ export const useAuthStore = defineStore("auth", () => {
     token,
     user,
     setSession,
+    setUser,
     clearSession,
   }
 })

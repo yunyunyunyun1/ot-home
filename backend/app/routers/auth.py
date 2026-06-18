@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
 from app.database import get_db
-from app.security import create_access_token, get_current_user, require_admin, verify_password
+from app.security import (
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    require_admin,
+    verify_password,
+)
 from app.serializers import user_to_read
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -114,4 +120,33 @@ def token(
 
 @router.get("/me", response_model=schemas.UserRead)
 def read_me(current_user: models.User = Depends(get_current_user)):
+    return user_to_read(current_user)
+
+
+@router.patch("/me", response_model=schemas.UserRead)
+def update_me(
+    user_in: schemas.UserAccountUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.full_name = user_in.full_name
+    if "date_of_birth" in user_in.model_fields_set:
+        current_user.date_of_birth = user_in.date_of_birth
+    if "gender" in user_in.model_fields_set:
+        current_user.gender = user_in.gender.value if user_in.gender is not None else None
+    current_user.profile_image_data = user_in.profile_image_data
+
+    if user_in.new_password is not None:
+        if user_in.current_password is None or not verify_password(
+            user_in.current_password,
+            current_user.password_hash,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        current_user.password_hash = get_password_hash(user_in.new_password)
+
+    db.commit()
+    db.refresh(current_user)
     return user_to_read(current_user)

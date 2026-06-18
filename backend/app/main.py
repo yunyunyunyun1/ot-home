@@ -22,8 +22,38 @@ async def lifespan(app: FastAPI):
         )
         connection.execute(
             text(
+                "ALTER TABLE IF EXISTS users "
+                "ADD COLUMN IF NOT EXISTS profile_image_data TEXT"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS users "
+                "ADD COLUMN IF NOT EXISTS date_of_birth DATE"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS users "
+                "ADD COLUMN IF NOT EXISTS gender VARCHAR(30)"
+            )
+        )
+        connection.execute(
+            text(
                 "ALTER TABLE IF EXISTS kids "
                 "ADD COLUMN IF NOT EXISTS full_name VARCHAR(160)"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS kids "
+                "ADD COLUMN IF NOT EXISTS date_of_birth DATE"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS kids "
+                "ADD COLUMN IF NOT EXISTS gender VARCHAR(30)"
             )
         )
         connection.execute(

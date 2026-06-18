@@ -1,18 +1,22 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "./client"
-import type { AddressPayload } from "./auth"
+import { apiDelete, apiGet, apiPatch, apiPost } from './client'
+import type { AddressPayload } from './auth'
 
 export type KidCreatePayload = {
   thai_id: string
   full_name: string
+  date_of_birth: string
+  gender: string
   address: AddressPayload
 }
 
-export type KidUpdatePayload = Omit<KidCreatePayload, "thai_id">
+export type KidUpdatePayload = Omit<KidCreatePayload, 'thai_id'>
 
 export type KidResponse = {
   id: string
   thai_id_masked: string
   full_name: string
+  date_of_birth: string | null
+  gender: string | null
   assigned_caregiver: {
     id: string
     full_name: string
@@ -68,7 +72,7 @@ export type CaregiverAvailabilitySlotResponse = CaregiverAvailabilitySlotPayload
   assigned_kid_name: string | null
 }
 
-export type DenverAspectResult = "pass" | "fail"
+export type DenverAspectResult = 'pass' | 'fail'
 
 export type DenverEvaluationPayload = {
   evaluation_name: string
@@ -98,7 +102,7 @@ export type TherapySessionResponse = {
   caregiver_id: string
   case_manager_id: string
   availability_slot_id: string
-  status: "scheduled" | "completed" | "cancelled"
+  status: 'scheduled' | 'completed' | 'cancelled'
   scheduled_date: string
   scheduled_start_time: string
   scheduled_end_time: string
@@ -122,16 +126,31 @@ export type HomeProgramActivityResponse = HomeProgramActivityPayload & {
   updated_at: string
 }
 
+export type HomeProgramTemplateResponse = {
+  id: string
+  source: string
+  age_range: string
+  age_months: number
+  age_years: number
+  age_remainder_months: number
+  aspect: string
+  title: string
+  instruction: string
+  materials: string | null
+  frequency: string | null
+  note: string | null
+}
+
 export type CaseManagerContextResponse = {
   province: string
 }
 
 export function getCaseManagerContext(): Promise<CaseManagerContextResponse> {
-  return apiGet<CaseManagerContextResponse>("/api/v1/case-manager/me")
+  return apiGet<CaseManagerContextResponse>('/api/v1/case-manager/me')
 }
 
 export function createKid(payload: KidCreatePayload): Promise<KidResponse> {
-  return apiPost<KidResponse, KidCreatePayload>("/api/v1/case-manager/kids", payload)
+  return apiPost<KidResponse, KidCreatePayload>('/api/v1/case-manager/kids', payload)
 }
 
 export function updateKid(kidId: string, payload: KidUpdatePayload): Promise<KidResponse> {
@@ -143,15 +162,15 @@ export function deleteKid(kidId: string): Promise<void> {
 }
 
 export function listKids(): Promise<KidResponse[]> {
-  return apiGet<KidResponse[]>("/api/v1/case-manager/kids")
+  return apiGet<KidResponse[]>('/api/v1/case-manager/kids')
 }
 
 export function listCaregivers(): Promise<CaregiverResponse[]> {
-  return apiGet<CaregiverResponse[]>("/api/v1/case-manager/caregivers")
+  return apiGet<CaregiverResponse[]>('/api/v1/case-manager/caregivers')
 }
 
 export function listVillageVolunteers(): Promise<VillageVolunteerResponse[]> {
-  return apiGet<VillageVolunteerResponse[]>("/api/v1/case-manager/village-volunteers")
+  return apiGet<VillageVolunteerResponse[]>('/api/v1/case-manager/village-volunteers')
 }
 
 export function assignKidToCaregiver(
@@ -159,14 +178,14 @@ export function assignKidToCaregiver(
   caregiverId: string,
   availabilitySlotId: string,
 ): Promise<KidResponse> {
-  return apiPost<KidResponse, { kid_id: string; caregiver_id: string; availability_slot_id: string }>(
-    "/api/v1/case-manager/assignments",
-    {
-      kid_id: kidId,
-      caregiver_id: caregiverId,
-      availability_slot_id: availabilitySlotId,
-    },
-  )
+  return apiPost<
+    KidResponse,
+    { kid_id: string; caregiver_id: string; availability_slot_id: string }
+  >('/api/v1/case-manager/assignments', {
+    kid_id: kidId,
+    caregiver_id: caregiverId,
+    availability_slot_id: availabilitySlotId,
+  })
 }
 
 export function assignKidToVillageVolunteer(
@@ -174,7 +193,7 @@ export function assignKidToVillageVolunteer(
   villageVolunteerId: string,
 ): Promise<KidResponse> {
   return apiPost<KidResponse, { kid_id: string; village_volunteer_id: string }>(
-    "/api/v1/case-manager/village-volunteer-assignments",
+    '/api/v1/case-manager/village-volunteer-assignments',
     {
       kid_id: kidId,
       village_volunteer_id: villageVolunteerId,
@@ -183,11 +202,15 @@ export function assignKidToVillageVolunteer(
 }
 
 export function listMyAssignedKids(): Promise<KidResponse[]> {
-  return apiGet<KidResponse[]>("/api/v1/caregiver/kids")
+  return apiGet<KidResponse[]>('/api/v1/caregiver/kids')
+}
+
+export function listHomeProgramTemplates(): Promise<HomeProgramTemplateResponse[]> {
+  return apiGet<HomeProgramTemplateResponse[]>('/api/v1/caregiver/home-program-templates')
 }
 
 export function listMyVillageVolunteerAssignedKids(): Promise<KidResponse[]> {
-  return apiGet<KidResponse[]>("/api/v1/village-volunteer/kids")
+  return apiGet<KidResponse[]>('/api/v1/village-volunteer/kids')
 }
 
 export function listVillageVolunteerHomeProgramActivities(
@@ -199,14 +222,14 @@ export function listVillageVolunteerHomeProgramActivities(
 }
 
 export function listMyAvailabilitySlots(): Promise<CaregiverAvailabilitySlotResponse[]> {
-  return apiGet<CaregiverAvailabilitySlotResponse[]>("/api/v1/caregiver/availability")
+  return apiGet<CaregiverAvailabilitySlotResponse[]>('/api/v1/caregiver/availability')
 }
 
 export function createAvailabilitySlot(
   payload: CaregiverAvailabilitySlotPayload,
 ): Promise<CaregiverAvailabilitySlotResponse> {
   return apiPost<CaregiverAvailabilitySlotResponse, CaregiverAvailabilitySlotPayload>(
-    "/api/v1/caregiver/availability",
+    '/api/v1/caregiver/availability',
     payload,
   )
 }
@@ -255,4 +278,19 @@ export function createHomeProgramActivity(
     `/api/v1/caregiver/kids/${kidId}/home-programs`,
     payload,
   )
+}
+
+export function updateHomeProgramActivity(
+  kidId: string,
+  activityId: string,
+  payload: HomeProgramActivityPayload,
+): Promise<HomeProgramActivityResponse> {
+  return apiPatch<HomeProgramActivityResponse, HomeProgramActivityPayload>(
+    `/api/v1/caregiver/kids/${kidId}/home-programs/${activityId}`,
+    payload,
+  )
+}
+
+export function deleteHomeProgramActivity(kidId: string, activityId: string): Promise<void> {
+  return apiDelete(`/api/v1/caregiver/kids/${kidId}/home-programs/${activityId}`)
 }

@@ -1,5 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"
-const TOKEN_STORAGE_KEY = "ot_at_home_access_token"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+const TOKEN_STORAGE_KEY = 'ot_at_home_access_token'
 
 type ApiErrorDetail = string | Array<{ msg?: string; loc?: Array<string | number> }>
 type AccountTypeResponse = {
@@ -14,32 +14,32 @@ export class ApiError extends Error {
 
   constructor(message: string, status: number) {
     super(message)
-    this.name = "ApiError"
+    this.name = 'ApiError'
     this.status = status
   }
 }
 
 function getErrorMessage(detail: ApiErrorDetail | undefined): string {
-  if (typeof detail === "string") {
+  if (typeof detail === 'string') {
     return detail
   }
 
   if (Array.isArray(detail)) {
     return detail
       .map((item) => {
-        const field = item.loc?.filter((part) => part !== "body").join(".")
+        const field = item.loc?.filter((part) => part !== 'body').join('.')
         return field ? `${field}: ${item.msg}` : item.msg
       })
       .filter(Boolean)
-      .join(", ")
+      .join(', ')
   }
 
-  return "ไม่สามารถทำรายการได้ กรุณาลองใหม่อีกครั้ง"
+  return 'ไม่สามารถทำรายการได้ กรุณาลองใหม่อีกครั้ง'
 }
 
 export async function apiPost<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
+    method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify(body),
   })
@@ -60,7 +60,7 @@ export async function apiPost<TResponse, TBody>(path: string, body: TBody): Prom
 
 function buildHeaders(): HeadersInit {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   }
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
 
@@ -73,7 +73,7 @@ function buildHeaders(): HeadersInit {
 
 export async function apiGet<TResponse>(path: string): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "GET",
+    method: 'GET',
     headers: buildHeaders(),
   })
 
@@ -88,7 +88,7 @@ export async function apiGet<TResponse>(path: string): Promise<TResponse> {
 
 export async function apiPatch<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: buildHeaders(),
     body: JSON.stringify(body),
   })
@@ -104,7 +104,7 @@ export async function apiPatch<TResponse, TBody>(path: string, body: TBody): Pro
 
 export async function apiDelete(path: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "DELETE",
+    method: 'DELETE',
     headers: buildHeaders(),
   })
 

@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -5,9 +8,26 @@ from uuid import UUID
 from app import models, schemas
 from app.security import get_password_hash
 
+HOME_PROGRAM_TEMPLATES_PATH = Path(__file__).parent / "data" / "home_program_templates.json"
+
 
 def mask_thai_id(thai_id: str) -> str:
     return f"{thai_id[:4]}*****{thai_id[-4:]}"
+
+
+def list_home_program_templates(
+    age_range: str | None = None,
+    aspect: str | None = None,
+) -> list[schemas.HomeProgramTemplateRead]:
+    templates = [
+        schemas.HomeProgramTemplateRead.model_validate(item)
+        for item in json.loads(HOME_PROGRAM_TEMPLATES_PATH.read_text(encoding="utf-8"))
+    ]
+    if age_range:
+        templates = [template for template in templates if template.age_range == age_range]
+    if aspect:
+        templates = [template for template in templates if template.aspect == aspect]
+    return templates
 
 
 def get_user_by_thai_id(db: Session, thai_id: str) -> models.User | None:
@@ -29,6 +49,8 @@ def create_parent(db: Session, user_in: schemas.ParentRegister) -> models.User:
         password_hash=get_password_hash(user_in.password),
         role=models.UserRole.PARENT,
         full_name=user_in.full_name,
+        date_of_birth=user_in.date_of_birth,
+        gender=user_in.gender.value,
         phone=user_in.phone,
         email=user_in.email,
     )
@@ -46,6 +68,8 @@ def create_caregiver(db: Session, user_in: schemas.ProfessionalRegister) -> mode
         password_hash=get_password_hash(user_in.password),
         role=models.UserRole.CAREGIVER,
         full_name=user_in.full_name,
+        date_of_birth=user_in.date_of_birth,
+        gender=user_in.gender.value,
         phone=user_in.phone,
         email=user_in.email,
     )
@@ -67,6 +91,8 @@ def create_village_volunteer(db: Session, user_in: schemas.VillageVolunteerRegis
         password_hash=get_password_hash(user_in.password),
         role=models.UserRole.VILLAGE_VOLUNTEER,
         full_name=user_in.full_name,
+        date_of_birth=user_in.date_of_birth,
+        gender=user_in.gender.value,
         phone=user_in.phone,
         email=user_in.email,
     )
@@ -91,6 +117,8 @@ def create_case_manager(
         password_hash=get_password_hash(user_in.password),
         role=models.UserRole.CASE_MANAGER,
         full_name=user_in.full_name,
+        date_of_birth=user_in.date_of_birth,
+        gender=user_in.gender.value,
         phone=user_in.phone,
         email=user_in.email,
     )
@@ -156,6 +184,8 @@ def create_kid(
     kid = models.Kid(
         thai_id=kid_in.thai_id,
         full_name=kid_in.full_name,
+        date_of_birth=kid_in.date_of_birth,
+        gender=kid_in.gender.value,
         address=address,
         created_by_case_manager=case_manager,
     )
@@ -180,6 +210,8 @@ def update_kid(
     kid_in: schemas.KidUpdate,
 ) -> models.Kid:
     kid.full_name = kid_in.full_name
+    kid.date_of_birth = kid_in.date_of_birth
+    kid.gender = kid_in.gender.value
     update_address(kid.address, kid_in.address)
     db.commit()
     db.refresh(kid)
@@ -637,3 +669,38 @@ def create_home_program_activity(
     db.commit()
     db.refresh(activity)
     return activity
+
+
+def get_home_program_activity_for_caregiver_kid(
+    db: Session,
+    kid: models.Kid,
+    caregiver: models.User,
+    activity_id: UUID,
+) -> models.HomeProgramActivity | None:
+    statement = (
+        select(models.HomeProgramActivity)
+        .where(models.HomeProgramActivity.id == activity_id)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .where(models.HomeProgramActivity.caregiver_id == caregiver.id)
+    )
+    return db.scalar(statement)
+
+
+def update_home_program_activity(
+    db: Session,
+    activity: models.HomeProgramActivity,
+    activity_in: schemas.HomeProgramActivityUpdate,
+) -> models.HomeProgramActivity:
+    for field, value in activity_in.model_dump(exclude_unset=True).items():
+        setattr(activity, field, value)
+    db.commit()
+    db.refresh(activity)
+    return activity
+
+
+def delete_home_program_activity(
+    db: Session,
+    activity: models.HomeProgramActivity,
+) -> None:
+    db.delete(activity)
+    db.commit()

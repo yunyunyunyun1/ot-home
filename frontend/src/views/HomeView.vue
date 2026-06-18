@@ -1,19 +1,44 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 const showWelcomePopup = ref(true)
 const partnerLogos = ref([
-  { label: "สคส.", src: "/logos/whaf.png" },
-  { label: "ม.มหิดล", src: "/logos/mahidol.png" },
-  { label: "สมาคม OT", src: "/logos/otat.jpg" },
-  { label: "กระทรวงสาธารณสุข", src: "/logos/moph.png" },
-  { label: "สสส.", src: "/logos/thaihealth.png" },
+  { label: 'สคส.', src: '/logos/whaf.png' },
+  { label: 'ม.มหิดล', src: '/logos/mahidol.png' },
+  { label: 'สมาคม OT', src: '/logos/otat.jpg' },
+  { label: 'กระทรวงสาธารณสุข', src: '/logos/moph.png' },
+  { label: 'สสส.', src: '/logos/thaihealth.png' },
 ])
+
+const roleLabels: Record<string, string> = {
+  admin: 'ผู้ดูแลระบบ',
+  parent: 'ผู้ปกครอง',
+  case_manager: 'Case Manager',
+  caregiver: 'นักกิจกรรมบำบัด',
+  village_volunteer: 'ผู้ดูแลเด็ก',
+}
+
+const roleHomeRoutes: Record<string, string> = {
+  admin: '/admin',
+  parent: '/parent',
+  case_manager: '/case-manager',
+  caregiver: '/caregiver',
+  village_volunteer: '/village-volunteer',
+}
+
+const userRole = computed(() => authStore.user?.role ?? '')
+const userRoleLabel = computed(() => (userRole.value ? roleLabels[userRole.value] : 'ผู้ใช้งาน'))
+const roleHomePath = computed(() => roleHomeRoutes[userRole.value] ?? '/login')
+const isLoggedIn = computed(() => Boolean(authStore.token && authStore.user))
 
 function hideMissingLogo(index: number) {
   const logo = partnerLogos.value[index]
   if (logo) {
-    logo.src = ""
+    logo.src = ''
   }
 }
 </script>
@@ -21,53 +46,100 @@ function hideMissingLogo(index: number) {
 <template>
   <main class="home-page">
     <nav class="top-nav" aria-label="Main navigation">
-      <a class="brand" href="/" aria-label="OT@HOME home">
+      <RouterLink class="brand" to="/" aria-label="OT@HOME home">
         <span class="logo-slot" aria-hidden="true"></span>
         <span class="brand-name">OT@HOME</span>
-      </a>
+      </RouterLink>
 
       <div class="nav-actions">
-        <a class="nav-link" href="/login">เข้าสู่ระบบ</a>
-        <a class="nav-button" href="/register">สมัครใช้งาน</a>
+        <template v-if="isLoggedIn">
+          <RouterLink class="user-avatar-link" to="/account" :aria-label="userRoleLabel">
+            <img
+              v-if="authStore.user?.profile_image_data"
+              :src="authStore.user.profile_image_data"
+              alt=""
+            />
+            <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
+          </RouterLink>
+          <RouterLink class="nav-button" :to="roleHomePath">ไปยังหน้าทำงาน</RouterLink>
+        </template>
+        <template v-else>
+          <RouterLink class="nav-link" to="/login">เข้าสู่ระบบ</RouterLink>
+          <RouterLink class="nav-button" to="/register">สมัครใช้งาน</RouterLink>
+        </template>
       </div>
     </nav>
 
-    <section class="hero" aria-labelledby="home-title">
-      <div class="hero-copy">
-        <p class="eyebrow">ระบบบันทึกและติดตามกิจกรรมบำบัดที่บ้าน</p>
-        <h1 id="home-title">ddddddddd
-        dddddddddd
-        dddddddddd
-        dddddddd</h1>
-        <p class="intro">
-          dddddddddddddddddddddddd
-          dddddddddddddddddddddddd
-          
-        </p>
+    <section class="home-shell" aria-labelledby="home-title">
+      <header class="hero-panel">
+        <div class="hero-copy">
+          <p class="eyebrow">ระบบบริการแบบไร้รอยต่อ</p>
+          <h1 id="home-title">OT@HOME</h1>
+          <p class="intro">
+            ระบบบริการส่งเสริมพัฒนาการเด็กปฐมวัยด้วยโปรแกรมกิจกรรมบำบัดแบบเข้มข้นที่บ้าน
+          </p>
+        </div>
 
-        <div class="hero-actions" aria-label="Primary actions">
-          <a class="primary-action" href="/login">เริ่มใช้งาน</a>
-          <a class="secondary-action" href="/register">สร้างบัญชีใหม่</a>
-        </div>
-      </div>
+        <aside class="privacy-panel" aria-label="นโยบายความเป็นส่วนตัว">
+          <span class="privacy-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+          <h2>พื้นที่ข้อมูลส่วนบุคคล</h2>
+          <p>
+            หน้าหลักแสดงเฉพาะข้อมูลสรุประดับระบบ รายละเอียดเด็ก ครอบครัว
+            และผลประเมินจะแสดงหลังเข้าสู่ระบบตามสิทธิ์เท่านั้น
+          </p>
+        </aside>
+      </header>
 
-      <div class="hero-visual" aria-label="OT@HOME care overview preview">
-        <div class="care-card child-card">
-          <span class="card-label">เด็กในความดูแล</span>
-          <strong>0</strong>
-          <small>กำลังติดตาม</small>
+      <section class="summary-grid" aria-label="ภาพรวมระบบ">
+        <article class="summary-card">
+          <span class="summary-icon summary-icon--blue">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i>
+          </span>
+          <h2>เข้าถึงตามบทบาท</h2>
+          <p>ผู้ใช้แต่ละประเภทเห็นเฉพาะหน้าที่และข้อมูลที่เกี่ยวข้องกับความรับผิดชอบของตน</p>
+        </article>
+
+        <article class="summary-card">
+          <span class="summary-icon summary-icon--green">
+            <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+          </span>
+          <h2>ติดตามการดูแล</h2>
+          <p>รองรับการนัดหมาย การประเมิน และการมอบหมาย Home Program อย่างต่อเนื่อง</p>
+        </article>
+
+        <article class="summary-card">
+          <span class="summary-icon summary-icon--amber">
+            <i class="bi bi-people" aria-hidden="true"></i>
+          </span>
+          <h2>ทำงานร่วมกัน</h2>
+          <p>เชื่อมโยง Case Manager นักกิจกรรมบำบัด ผู้ดูแลเด็ก และครอบครัวในกระบวนการเดียวกัน</p>
+        </article>
+      </section>
+
+      <section class="workflow-panel" aria-labelledby="workflow-title">
+        <div>
+          <p class="eyebrow">Workflow Summary</p>
+          <h2 id="workflow-title">ภาพรวมการทำงานของระบบ</h2>
         </div>
-        <div class="care-card visit-card">
-          <span class="card-label">เยี่ยมบ้าน</span>
-          <strong>0</strong>
-          <small>สัปดาห์นี้</small>
+
+        <div class="workflow-steps">
+          <article>
+            <span>1</span>
+            <strong>จัดการพื้นที่</strong>
+            <p>เพิ่มข้อมูลและจัดทีมดูแลตามจังหวัดที่รับผิดชอบ</p>
+          </article>
+          <article>
+            <span>2</span>
+            <strong>ให้บริการและประเมิน</strong>
+            <p>บันทึกผลการดูแลตามรอบนัดหมายและบทบาทผู้ให้บริการ</p>
+          </article>
+          <article>
+            <span>3</span>
+            <strong>ติดตามที่บ้าน</strong>
+            <p>ใช้ Home Program ล่าสุดช่วยส่งเสริมการทำกิจกรรมต่อเนื่อง</p>
+          </article>
         </div>
-        <div class="care-card note-card">
-          <span class="card-label">โฮมโปรแกรม</span>
-          <strong>กระโดดเชือก</strong>
-          <small>กิจกรรมกล้ามเนื้อมัดเล็ก</small>
-        </div>
-      </div>
+      </section>
     </section>
 
     <div
@@ -107,8 +179,8 @@ function hideMissingLogo(index: number) {
         <button
           class="welcome-button"
           type="button"
-          aria-label="เข้าสู่ระบบ"
-          title="เข้าสู่ระบบ"
+          aria-label="เข้าสู่เว็บไซต์"
+          title="เข้าสู่เว็บไซต์"
           @click="showWelcomePopup = false"
         >
           เข้าสู่เว็บไซต์
@@ -121,26 +193,23 @@ function hideMissingLogo(index: number) {
 <style scoped>
 .home-page {
   min-height: 100vh;
-  overflow: hidden;
-  position: relative;
+  overflow-x: hidden;
   background:
-    radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    radial-gradient(circle at top right, rgb(96 165 250 / 0.16), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, var(--color-background) 48%, #eef6ff 100%);
 }
 
-.home-page::before {
-  display: none;
+.top-nav,
+.home-shell {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
 }
 
 .top-nav {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  width: min(1120px, calc(100% - 2rem));
-  margin: 0 auto;
   padding: 1.25rem 0;
 }
 
@@ -169,13 +238,13 @@ function hideMissingLogo(index: number) {
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {
-  font-size: 1.25rem;
-  font-weight: 800;
   color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 850;
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -187,15 +256,13 @@ function hideMissingLogo(index: number) {
 }
 
 .nav-link,
-.nav-button,
-.primary-action,
-.secondary-action {
+.nav-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.65rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  font-weight: 700;
+  font-weight: 850;
   line-height: 1;
   white-space: nowrap;
 }
@@ -205,139 +272,196 @@ function hideMissingLogo(index: number) {
   color: var(--color-muted);
 }
 
-.nav-button,
-.primary-action {
+.nav-button {
   padding: 0 1.1rem;
   color: #ffffff;
   background: var(--color-primary);
   box-shadow: 0 14px 26px rgb(59 130 246 / 0.22);
 }
 
-.hero {
-  position: relative;
-  z-index: 1;
+.user-chip {
+  border: 1px solid rgb(219 231 245 / 0.9);
+  border-radius: 999px;
+  padding: 0.58rem 0.85rem;
+  color: var(--color-text);
+  background: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.home-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 29rem);
-  gap: clamp(2rem, 7vw, 6rem);
-  align-items: center;
-  width: min(1120px, calc(100% - 2rem));
-  min-height: calc(100vh - 5.5rem);
-  margin: 0 auto;
-  padding: 2rem 0 4rem;
+  gap: 1.25rem;
+  padding: 1rem 0 4rem;
+}
+
+.hero-panel,
+.summary-card,
+.workflow-panel {
+  border: 1px solid rgb(219 231 245 / 0.92);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: 0 20px 54px rgb(31 41 55 / 0.08);
+}
+
+.hero-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
+  gap: 1.25rem;
+  align-items: stretch;
+  padding: clamp(1.25rem, 4vw, 2rem);
 }
 
 .hero-copy {
-  max-width: 42rem;
+  display: grid;
+  align-content: center;
 }
 
 .eyebrow {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
   color: var(--color-primary);
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-h1 {
-  max-width: 13ch;
+h1,
+h2,
+p {
   margin: 0;
+}
+
+h1,
+h2 {
   color: var(--color-text);
-  font-size: clamp(2.6rem, 6vw, 5.4rem);
-  line-height: 1.02;
   letter-spacing: 0;
 }
 
+h1 {
+  font-family: var(--brand-font);
+  font-size: clamp(2.7rem, 7vw, 5rem);
+  font-weight: 900;
+  line-height: 0.95;
+}
+
+#home-title {
+  color: var(--color-primary);
+  text-wrap: balance;
+}
+
+h2 {
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+}
+
 .intro {
-  max-width: 38rem;
-  margin: 1.4rem 0 0;
+  max-width: 44rem;
+  margin-top: 1rem;
   color: var(--color-muted);
-  font-size: 1.08rem;
+  font-size: 1.05rem;
   line-height: 1.8;
 }
 
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
+.privacy-panel {
+  display: grid;
+  align-content: center;
+  gap: 0.65rem;
+  border: 1px solid rgb(59 130 246 / 0.18);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgb(59 130 246 / 0.1), transparent 46%), #fbfdff;
+}
+
+.privacy-icon,
+.summary-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 0.85rem;
+}
+
+.privacy-icon {
+  width: 3.1rem;
+  height: 3.1rem;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 1.35rem;
+}
+
+.privacy-panel p,
+.summary-card p,
+.workflow-steps p {
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.summary-card {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: 1rem;
+}
+
+.summary-icon {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.3rem;
+}
+
+.summary-icon--blue {
+  color: #2563eb;
+  background: #dbeafe;
+}
+
+.summary-icon--green {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.summary-icon--amber {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.workflow-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
-  margin-top: 2rem;
 }
 
-.primary-action,
-.secondary-action {
-  min-width: 9.5rem;
-  padding: 0 1.4rem;
-}
-
-.secondary-action {
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  background: rgb(255 255 255 / 0.74);
-}
-
-.hero-visual {
-  position: relative;
-  min-height: 29rem;
-}
-
-.hero-visual::before {
-  position: absolute;
-  inset: 3rem 1rem 2rem;
-  border: 1px solid rgb(219 231 245 / 0.8);
-  border-radius: 2rem;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.54)),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 4.2rem,
-      rgb(96 165 250 / 0.08) 4.2rem,
-      rgb(96 165 250 / 0.08) 4.25rem
-    );
-  box-shadow: 0 28px 80px rgb(31 41 55 / 0.1);
-  content: "";
-}
-
-.care-card {
-  position: absolute;
+.workflow-steps article {
   display: grid;
   gap: 0.45rem;
-  width: min(15rem, 72%);
-  min-height: 9rem;
-  padding: 1.1rem;
-  border: 1px solid rgb(219 231 245 / 0.9);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid rgb(219 231 245 / 0.84);
+  border-radius: 0.75rem;
+  padding: 0.9rem;
+  background: #fbfdff;
 }
 
-.care-card strong {
-  color: var(--color-primary);
-  font-size: 2.8rem;
-  line-height: 1;
+.workflow-steps span {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--color-primary);
+  font-weight: 900;
 }
 
-.care-card small,
-.card-label {
-  color: var(--color-muted);
-}
-
-.card-label {
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.child-card {
-  top: 0.5rem;
-  left: 0;
-}
-
-.visit-card {
-  top: 9.5rem;
-  right: 0;
-}
-
-.note-card {
-  right: 5.4rem;
-  bottom: 1rem;
+.workflow-steps strong {
+  color: var(--color-text);
 }
 
 .welcome-overlay {
@@ -348,8 +472,7 @@ h1 {
   place-items: center;
   padding: clamp(0.75rem, 2vw, 1.5rem);
   background:
-    radial-gradient(circle at top, rgb(78 115 223 / 0.2), transparent 34rem),
-    rgb(31 41 55 / 0.48);
+    radial-gradient(circle at top, rgb(78 115 223 / 0.2), transparent 34rem), rgb(31 41 55 / 0.48);
   backdrop-filter: blur(5px);
 }
 
@@ -361,15 +484,12 @@ h1 {
   border-radius: clamp(0.8rem, 2vw, 1.6rem);
   padding: 0;
   overflow: hidden;
-  background:
-    image-set(
-      url("/welcome/ot-home-popup.jpg") 1x
-    )
-    center / cover no-repeat;
+  background: image-set(url('/welcome/ot-home-popup.jpg') 1x) center / cover no-repeat;
   box-shadow: 0 1.5rem 4rem rgb(31 41 55 / 0.32);
 }
 
-.welcome-header {
+.welcome-header,
+.welcome-copy {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -409,47 +529,6 @@ h1 {
   text-align: center;
 }
 
-.welcome-copy {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.welcome-kicker {
-  justify-self: center;
-  margin: 0.15rem 0 0.75rem;
-  border: 1px solid rgb(59 130 246 / 0.18);
-  border-radius: 999px;
-  padding: 0.42rem 0.8rem;
-  color: var(--color-primary);
-  background: rgb(59 130 246 / 0.08);
-  font-size: 0.84rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.welcome-copy p {
-  margin: 0;
-  color: var(--color-text);
-  font-size: clamp(1rem, 2.1vw, 1.16rem);
-  font-weight: 650;
-  line-height: 1.72;
-}
-
-.welcome-copy strong {
-  display: block;
-  color: var(--color-primary);
-  font-size: clamp(2.6rem, 7vw, 4.2rem);
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
 .welcome-button {
   position: absolute;
   z-index: 2;
@@ -478,46 +557,30 @@ h1 {
   outline-offset: 0.25rem;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 860px) {
+  .hero-panel,
+  .summary-grid,
+  .workflow-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .top-nav,
+  .home-shell {
+    width: min(100% - 1.25rem, 1120px);
+  }
+
   .top-nav {
     align-items: flex-start;
   }
 
   .nav-actions {
-    gap: 0.35rem;
+    gap: 0.45rem;
   }
 
-  .nav-link,
-  .nav-button {
-    min-height: 2.5rem;
-    padding: 0 0.75rem;
-    font-size: 0.92rem;
-  }
-
-  .hero {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    min-height: auto;
-    padding-top: 2.5rem;
-  }
-
-  h1 {
-    max-width: 11ch;
-    font-size: 3rem;
-  }
-
-  .hero-visual {
-    min-height: 24rem;
-  }
-
-  .note-card {
-    right: 2rem;
-  }
-}
-
-@media (max-width: 560px) {
-  .top-nav {
-    width: min(100% - 1.25rem, 1120px);
+  .nav-link {
+    display: none;
   }
 
   .brand {
@@ -534,38 +597,12 @@ h1 {
     font-size: 1.05rem;
   }
 
-  .nav-link {
+  .user-chip {
     display: none;
   }
 
-  .hero {
-    width: min(100% - 1.25rem, 1120px);
-    padding-bottom: 2.5rem;
-  }
-
   h1 {
-    font-size: 2.55rem;
-  }
-
-  .intro {
-    font-size: 1rem;
-  }
-
-  .primary-action,
-  .secondary-action {
-    width: 100%;
-  }
-
-  .hero-visual {
-    min-height: 22rem;
-  }
-
-  .care-card {
-    width: min(13.5rem, 80%);
-  }
-
-  .partner-logo {
-    height: 3.55rem;
+    font-size: 3rem;
   }
 }
 </style>

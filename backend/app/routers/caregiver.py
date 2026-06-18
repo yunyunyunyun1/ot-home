@@ -33,6 +33,15 @@ def list_assigned_kids(
     return [kid_to_read(kid) for kid in kids]
 
 
+@router.get("/home-program-templates", response_model=list[schemas.HomeProgramTemplateRead])
+def list_home_program_templates(
+    age_range: str | None = Query(default=None),
+    aspect: str | None = Query(default=None),
+    caregiver: models.User = Depends(require_caregiver),
+):
+    return crud.list_home_program_templates(age_range=age_range, aspect=aspect)
+
+
 @router.get("/availability", response_model=list[schemas.CaregiverAvailabilityRead])
 def list_availability_slots(
     skip: int = Query(default=0, ge=0),
@@ -235,3 +244,62 @@ def create_home_program_activity(
                 detail="Evaluation not found for this kid",
             )
     return crud.create_home_program_activity(db, kid, caregiver, activity_in)
+
+
+@router.patch(
+    "/kids/{kid_id}/home-programs/{activity_id}",
+    response_model=schemas.HomeProgramActivityRead,
+)
+def update_home_program_activity(
+    kid_id: UUID,
+    activity_id: UUID,
+    activity_in: schemas.HomeProgramActivityUpdate,
+    caregiver: models.User = Depends(require_caregiver),
+    db: Session = Depends(get_db),
+):
+    kid = _get_assigned_kid(kid_id, caregiver, db)
+    activity = crud.get_home_program_activity_for_caregiver_kid(
+        db,
+        kid,
+        caregiver,
+        activity_id,
+    )
+    if activity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Home program not found",
+        )
+    if activity_in.evaluation_id is not None:
+        evaluation = crud.get_denver_evaluation_for_kid(db, kid, activity_in.evaluation_id)
+        if evaluation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Evaluation not found for this kid",
+            )
+    return crud.update_home_program_activity(db, activity, activity_in)
+
+
+@router.delete(
+    "/kids/{kid_id}/home-programs/{activity_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_home_program_activity(
+    kid_id: UUID,
+    activity_id: UUID,
+    caregiver: models.User = Depends(require_caregiver),
+    db: Session = Depends(get_db),
+):
+    kid = _get_assigned_kid(kid_id, caregiver, db)
+    activity = crud.get_home_program_activity_for_caregiver_kid(
+        db,
+        kid,
+        caregiver,
+        activity_id,
+    )
+    if activity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Home program not found",
+        )
+    crud.delete_home_program_activity(db, activity)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

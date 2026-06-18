@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models import DenverAspectResult, UserRole
+from app.models import DenverAspectResult, UserGender, UserRole
 
 ThaiId = Annotated[str, Field(min_length=13, max_length=13, pattern=r"^\d{13}$")]
 StrongPassword = Annotated[str, Field(min_length=8, max_length=128)]
@@ -35,6 +35,8 @@ class AddressRead(AddressBase):
 class UserBase(BaseModel):
     thai_id: ThaiId
     full_name: str = Field(min_length=1, max_length=160)
+    date_of_birth: date
+    gender: UserGender
     phone: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=255)
 
@@ -82,12 +84,41 @@ class UserRead(BaseModel):
     thai_id_masked: str
     role: UserRole
     full_name: str
+    date_of_birth: date | None
+    gender: UserGender | None
     phone: str | None
     email: str | None
+    profile_image_data: str | None
     is_active: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserAccountUpdate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=160)
+    date_of_birth: date | None = None
+    gender: UserGender | None = None
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+    new_password: StrongPassword | None = None
+    profile_image_data: str | None = Field(default=None, max_length=700_000)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_strong_new_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        checks = [
+            any(char.islower() for char in value),
+            any(char.isupper() for char in value),
+            any(char.isdigit() for char in value),
+            any(not char.isalnum() for char in value),
+        ]
+        if not all(checks):
+            raise ValueError(
+                "Password must contain lowercase, uppercase, number, and special character"
+            )
+        return value
 
 
 class UserWithAddressRead(UserRead):
@@ -108,11 +139,15 @@ class TokenRead(BaseModel):
 class KidCreate(BaseModel):
     thai_id: ThaiId
     full_name: str = Field(min_length=1, max_length=160)
+    date_of_birth: date
+    gender: UserGender
     address: AddressCreate
 
 
 class KidUpdate(BaseModel):
     full_name: str = Field(min_length=1, max_length=160)
+    date_of_birth: date
+    gender: UserGender
     address: AddressCreate
 
 
@@ -130,6 +165,8 @@ class KidRead(BaseModel):
     id: UUID
     thai_id_masked: str
     full_name: str
+    date_of_birth: date | None
+    gender: UserGender | None
     address: AddressRead
     assigned_caregiver: AssignedCaregiverRead | None
     assigned_village_volunteers: list[AssignedVillageVolunteerRead] = Field(default_factory=list)
@@ -249,6 +286,15 @@ class HomeProgramActivityCreate(BaseModel):
     note: str | None = None
 
 
+class HomeProgramActivityUpdate(BaseModel):
+    evaluation_id: UUID | None = None
+    aspect: str | None = Field(default=None, min_length=1, max_length=80)
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    instruction: str | None = Field(default=None, min_length=1)
+    frequency: str | None = Field(default=None, max_length=160)
+    note: str | None = None
+
+
 class HomeProgramActivityRead(HomeProgramActivityCreate):
     id: UUID
     kid_id: UUID
@@ -257,3 +303,18 @@ class HomeProgramActivityRead(HomeProgramActivityCreate):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HomeProgramTemplateRead(BaseModel):
+    id: str
+    source: str
+    age_range: str
+    age_months: int
+    age_years: int
+    age_remainder_months: int
+    aspect: str
+    title: str
+    instruction: str
+    materials: str | None = None
+    frequency: str | None = None
+    note: str | None = None

@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue"
-import { RouterLink, useRoute, useRouter } from "vue-router"
+import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
-import { ApiError } from "../../api/client"
+import { ApiError } from '../../api/client'
 import {
   createHomeProgramActivity,
   createDenverEvaluation,
+  deleteHomeProgramActivity,
   listHomeProgramActivities,
+  listHomeProgramTemplates,
   listDenverEvaluations,
   listMyAssignedKids,
   listTherapySessions,
+  updateHomeProgramActivity,
   type DenverAspectResult,
   type DenverEvaluationResponse,
   type HomeProgramActivityResponse,
+  type HomeProgramTemplateResponse,
   type KidResponse,
   type TherapySessionResponse,
-} from "../../api/kids"
-import { useAuthStore } from "../../stores/auth"
+} from '../../api/kids'
+import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +29,7 @@ const authStore = useAuthStore()
 const kids = ref<KidResponse[]>([])
 const evaluations = ref<DenverEvaluationResponse[]>([])
 const homeProgramActivities = ref<HomeProgramActivityResponse[]>([])
+const homeProgramTemplates = ref<HomeProgramTemplateResponse[]>([])
 const therapySessions = ref<TherapySessionResponse[]>([])
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -34,39 +39,47 @@ const isHomeProgramModalOpen = ref(false)
 const isHomeProgramDetailModalOpen = ref(false)
 const selectedHomeProgramEvaluation = ref<DenverEvaluationResponse | null>(null)
 const selectedHomeProgramDetailEvaluation = ref<DenverEvaluationResponse | null>(null)
-const errorMessage = ref("")
-const successMessage = ref("")
+const selectedTemplateAgeRange = ref('')
+const editingHomeProgramActivityId = ref('')
+const deletingHomeProgramActivityId = ref('')
+const errorMessage = ref('')
+const successMessage = ref('')
 
 const form = reactive({
-  aspect_1_result: "pass" as DenverAspectResult,
-  aspect_2_result: "pass" as DenverAspectResult,
-  aspect_3_result: "pass" as DenverAspectResult,
-  aspect_4_result: "pass" as DenverAspectResult,
+  aspect_1_result: 'pass' as DenverAspectResult,
+  aspect_2_result: 'pass' as DenverAspectResult,
+  aspect_3_result: 'pass' as DenverAspectResult,
+  aspect_4_result: 'pass' as DenverAspectResult,
 })
 
 const homeProgramForm = reactive({
-  aspect: "personal_social",
-  title: "",
-  instruction: "",
-  frequency: "",
-  note: "",
+  aspect: 'personal_social',
+  title: '',
+  instruction: '',
+  frequency: '',
+  note: '',
 })
 
 const aspectOptions = [
-  { key: "aspect_1_result", label: "ส่วนบุคคล-สังคม", helper: "Personal-Social" },
-  { key: "aspect_2_result", label: "กล้ามเนื้อมัดเล็กและการปรับตัว", helper: "Fine Motor-Adaptive" },
-  { key: "aspect_3_result", label: "ภาษา", helper: "Language" },
-  { key: "aspect_4_result", label: "กล้ามเนื้อมัดใหญ่", helper: "Gross Motor" },
+  { key: 'aspect_1_result', label: 'ส่วนบุคคล-สังคม (PS)', helper: 'Personal-Social' },
+  {
+    key: 'aspect_2_result',
+    label: 'กล้ามเนื้อมัดเล็กและการปรับตัว (FM)',
+    helper: 'Fine Motor-Adaptive',
+  },
+  { key: 'aspect_3_result', label: 'ภาษา (L)', helper: 'Language' },
+  { key: 'aspect_4_result', label: 'กล้ามเนื้อมัดใหญ่ (GM)', helper: 'Gross Motor' },
 ] as const
 
 const homeProgramAspectOptions = [
-  { value: "personal_social", label: "ส่วนบุคคล-สังคม" },
-  { value: "fine_motor_adaptive", label: "กล้ามเนื้อมัดเล็กและการปรับตัว" },
-  { value: "language", label: "ภาษา" },
-  { value: "gross_motor", label: "กล้ามเนื้อมัดใหญ่" },
+  { value: 'personal_social', label: 'ส่วนบุคคล-สังคม (PS)' },
+  { value: 'fine_motor_adaptive', label: 'กล้ามเนื้อมัดเล็กและการปรับตัว (FM)' },
+  { value: 'receptive_language', label: 'ภาษารับรู้ (RL)' },
+  { value: 'expressive_language', label: 'ภาษาสื่อสาร (EL)' },
+  { value: 'gross_motor', label: 'กล้ามเนื้อมัดใหญ่ (GM)' },
 ] as const
 
-const kidId = computed(() => String(route.params.kidId ?? ""))
+const kidId = computed(() => String(route.params.kidId ?? ''))
 
 const kid = computed(() => {
   return kids.value.find((item) => item.id === kidId.value)
@@ -82,13 +95,13 @@ const nextSessionNumber = computed(() => {
 
 const nextTherapySession = computed(() => {
   return therapySessions.value.find((session) => {
-    return session.status === "scheduled" && !session.has_denver_evaluation
+    return session.status === 'scheduled' && !session.has_denver_evaluation
   })
 })
 
 const latestPassCount = computed(() => {
   if (!latestEvaluation.value) {
-    return "-"
+    return '-'
   }
 
   const results = [
@@ -97,12 +110,12 @@ const latestPassCount = computed(() => {
     latestEvaluation.value.aspect_3_result,
     latestEvaluation.value.aspect_4_result,
   ]
-  return `${results.filter((result) => result === "pass").length}/4`
+  return `${results.filter((result) => result === 'pass').length}/4`
 })
 
 const selectedHomeProgramEvaluationLabel = computed(() => {
   if (!selectedHomeProgramEvaluation.value) {
-    return "ยังไม่ได้เลือกผลประเมิน"
+    return 'ยังไม่ได้เลือกผลประเมิน'
   }
 
   return `${sessionLabel(selectedHomeProgramEvaluation.value.evaluation_name)} · ${scheduleLabel(selectedHomeProgramEvaluation.value)}`
@@ -110,7 +123,7 @@ const selectedHomeProgramEvaluationLabel = computed(() => {
 
 const selectedHomeProgramDetailLabel = computed(() => {
   if (!selectedHomeProgramDetailEvaluation.value) {
-    return "ยังไม่ได้เลือกผลประเมิน"
+    return 'ยังไม่ได้เลือกผลประเมิน'
   }
 
   return `${sessionLabel(selectedHomeProgramDetailEvaluation.value.evaluation_name)} · ${scheduleLabel(selectedHomeProgramDetailEvaluation.value)}`
@@ -126,12 +139,31 @@ const selectedHomeProgramDetails = computed(() => {
   })
 })
 
+const templateAgeOptions = computed(() => {
+  const optionsByMonths = new Map<number, string>()
+  for (const template of homeProgramTemplates.value) {
+    optionsByMonths.set(template.age_months, template.age_range)
+  }
+  return Array.from(optionsByMonths.entries())
+    .sort(([leftMonths], [rightMonths]) => leftMonths - rightMonths)
+    .map(([months, label]) => ({ months, label }))
+})
+
+const visibleHomeProgramTemplates = computed(() => {
+  return homeProgramTemplates.value.filter((template) => {
+    const matchesAge =
+      !selectedTemplateAgeRange.value ||
+      template.age_months === Number(selectedTemplateAgeRange.value)
+    return matchesAge && template.aspect === homeProgramForm.aspect
+  })
+})
+
 function resultLabel(result: DenverAspectResult) {
-  return result === "pass" ? "ผ่าน" : "ไม่ผ่าน"
+  return result === 'pass' ? 'ผ่าน' : 'ไม่ผ่าน'
 }
 
 function resultClass(result: DenverAspectResult) {
-  return result === "pass" ? "result-pill result-pill--pass" : "result-pill result-pill--fail"
+  return result === 'pass' ? 'result-pill result-pill--pass' : 'result-pill result-pill--fail'
 }
 
 function sessionLabel(evaluationName: string) {
@@ -144,7 +176,7 @@ function scheduleLabel(evaluation: DenverEvaluationResponse) {
     !evaluation.scheduled_start_time ||
     !evaluation.scheduled_end_time
   ) {
-    return "ยังไม่มีวันนัด"
+    return 'ยังไม่มีวันนัด'
   }
 
   return `${evaluation.scheduled_date} ${evaluation.scheduled_start_time.slice(0, 5)}-${evaluation.scheduled_end_time.slice(0, 5)}`
@@ -152,7 +184,7 @@ function scheduleLabel(evaluation: DenverEvaluationResponse) {
 
 function therapySessionLabel(session: TherapySessionResponse | undefined) {
   if (!session) {
-    return "ยังไม่มีการนัด"
+    return 'ยังไม่มีการนัด'
   }
 
   return `${session.scheduled_date} ${session.scheduled_start_time.slice(0, 5)}-${session.scheduled_end_time.slice(0, 5)}`
@@ -162,36 +194,50 @@ function homeProgramAspectLabel(aspect: string) {
   return homeProgramAspectOptions.find((option) => option.value === aspect)?.label ?? aspect
 }
 
+function applyHomeProgramTemplate(template: HomeProgramTemplateResponse) {
+  homeProgramForm.aspect = template.aspect
+  homeProgramForm.title = template.title
+  homeProgramForm.instruction = template.instruction
+  homeProgramForm.frequency = template.frequency ?? ''
+  homeProgramForm.note = template.note ?? ''
+}
+
 function homeProgramEvaluation(activity: HomeProgramActivityResponse) {
   return evaluations.value.find((evaluation) => evaluation.id === activity.evaluation_id)
 }
 
 function homeProgramScheduleLabel(activity: HomeProgramActivityResponse) {
   const evaluation = homeProgramEvaluation(activity)
-  return evaluation ? scheduleLabel(evaluation) : "ยังไม่ได้ผูกกับผลประเมิน"
+  return evaluation ? scheduleLabel(evaluation) : 'ยังไม่ได้ผูกกับผลประเมิน'
 }
 
 function homeProgramCountForEvaluation(evaluation: DenverEvaluationResponse) {
-  return homeProgramActivities.value.filter((activity) => activity.evaluation_id === evaluation.id).length
+  return homeProgramActivities.value.filter((activity) => activity.evaluation_id === evaluation.id)
+    .length
 }
 
 function resetHomeProgramForm() {
-  homeProgramForm.aspect = "personal_social"
-  homeProgramForm.title = ""
-  homeProgramForm.instruction = ""
-  homeProgramForm.frequency = ""
-  homeProgramForm.note = ""
+  editingHomeProgramActivityId.value = ''
+  homeProgramForm.aspect = 'personal_social'
+  homeProgramForm.title = ''
+  homeProgramForm.instruction = ''
+  homeProgramForm.frequency = ''
+  homeProgramForm.note = ''
 }
 
-function openHomeProgramModal(evaluation: DenverEvaluationResponse | undefined = latestEvaluation.value) {
+function openHomeProgramModal(
+  evaluation: DenverEvaluationResponse | undefined = latestEvaluation.value,
+) {
   if (!evaluation) {
-    errorMessage.value = "กรุณาบันทึกผลประเมินก่อนเพิ่ม Home Program"
+    errorMessage.value = 'กรุณาบันทึกผลประเมินก่อนเพิ่ม Home Program'
     return
   }
 
   selectedHomeProgramEvaluation.value = evaluation
-  errorMessage.value = ""
-  successMessage.value = ""
+  editingHomeProgramActivityId.value = ''
+  resetHomeProgramForm()
+  errorMessage.value = ''
+  successMessage.value = ''
   isHomeProgramModalOpen.value = true
 }
 
@@ -210,14 +256,29 @@ function closeHomeProgramDetailModal() {
   isHomeProgramDetailModalOpen.value = false
 }
 
+function startEditHomeProgramActivity(activity: HomeProgramActivityResponse) {
+  const evaluation = evaluations.value.find((item) => item.id === activity.evaluation_id)
+  selectedHomeProgramEvaluation.value = evaluation ?? latestEvaluation.value ?? null
+  editingHomeProgramActivityId.value = activity.id
+  homeProgramForm.aspect = activity.aspect
+  homeProgramForm.title = activity.title
+  homeProgramForm.instruction = activity.instruction
+  homeProgramForm.frequency = activity.frequency ?? ''
+  homeProgramForm.note = activity.note ?? ''
+  errorMessage.value = ''
+  successMessage.value = ''
+  isHomeProgramDetailModalOpen.value = false
+  isHomeProgramModalOpen.value = true
+}
+
 function openEvaluationModal() {
   if (!nextTherapySession.value) {
-    errorMessage.value = "ยังไม่มีนัดที่รอประเมิน"
+    errorMessage.value = 'ยังไม่มีนัดที่รอประเมิน'
     return
   }
 
-  errorMessage.value = ""
-  successMessage.value = ""
+  errorMessage.value = ''
+  successMessage.value = ''
   isEvaluationModalOpen.value = true
 }
 
@@ -229,60 +290,103 @@ function closeEvaluationModal() {
 
 async function loadPage() {
   isLoading.value = true
-  errorMessage.value = ""
-  successMessage.value = ""
+  errorMessage.value = ''
+  successMessage.value = ''
 
   try {
     kids.value = await listMyAssignedKids()
     if (!kid.value) {
-      errorMessage.value = "ไม่พบข้อมูลเด็ก หรือเด็กคนนี้ไม่ได้อยู่ในรายการที่คุณรับผิดชอบ"
+      errorMessage.value = 'ไม่พบข้อมูลเด็ก หรือเด็กคนนี้ไม่ได้อยู่ในรายการที่คุณรับผิดชอบ'
       return
     }
-    const [loadedEvaluations, loadedSessions, loadedHomeProgramActivities] = await Promise.all([
+    const [
+      loadedEvaluations,
+      loadedSessions,
+      loadedHomeProgramActivities,
+      loadedHomeProgramTemplates,
+    ] = await Promise.all([
       listDenverEvaluations(kidId.value),
       listTherapySessions(kidId.value),
       listHomeProgramActivities(kidId.value),
+      listHomeProgramTemplates(),
     ])
     evaluations.value = loadedEvaluations
     therapySessions.value = loadedSessions
     homeProgramActivities.value = loadedHomeProgramActivities
+    homeProgramTemplates.value = loadedHomeProgramTemplates
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถโหลดข้อมูลพัฒนาการได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError
+        ? error.message
+        : 'ไม่สามารถโหลดข้อมูลพัฒนาการได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isLoading.value = false
   }
 }
 
 async function submitHomeProgramActivity() {
-  errorMessage.value = ""
-  successMessage.value = ""
+  errorMessage.value = ''
+  successMessage.value = ''
   isSubmittingHomeProgram.value = true
 
   try {
-    const activity = await createHomeProgramActivity(kidId.value, {
+    const payload = {
       evaluation_id: selectedHomeProgramEvaluation.value?.id ?? null,
       aspect: homeProgramForm.aspect,
       title: homeProgramForm.title,
       instruction: homeProgramForm.instruction,
       frequency: homeProgramForm.frequency || null,
       note: homeProgramForm.note || null,
-    })
-    homeProgramActivities.value = [activity, ...homeProgramActivities.value]
+    }
+    const wasEditing = Boolean(editingHomeProgramActivityId.value)
+    const activity = wasEditing
+      ? await updateHomeProgramActivity(kidId.value, editingHomeProgramActivityId.value, payload)
+      : await createHomeProgramActivity(kidId.value, payload)
+    homeProgramActivities.value = wasEditing
+      ? homeProgramActivities.value.map((item) => (item.id === activity.id ? activity : item))
+      : [activity, ...homeProgramActivities.value]
     resetHomeProgramForm()
-    successMessage.value = "บันทึก Home Program แล้ว"
+    successMessage.value = wasEditing ? 'แก้ไข Home Program แล้ว' : 'บันทึก Home Program แล้ว'
     isHomeProgramModalOpen.value = false
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถบันทึก Home Program ได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError
+        ? error.message
+        : 'ไม่สามารถบันทึก Home Program ได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmittingHomeProgram.value = false
   }
 }
 
+async function removeHomeProgramActivity(activity: HomeProgramActivityResponse) {
+  const shouldDelete = window.confirm(`ลบ Home Program "${activity.title}" ใช่ไหม?`)
+  if (!shouldDelete) {
+    return
+  }
+
+  errorMessage.value = ''
+  successMessage.value = ''
+  deletingHomeProgramActivityId.value = activity.id
+
+  try {
+    await deleteHomeProgramActivity(kidId.value, activity.id)
+    homeProgramActivities.value = homeProgramActivities.value.filter(
+      (item) => item.id !== activity.id,
+    )
+    successMessage.value = 'ลบ Home Program แล้ว'
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : 'ไม่สามารถลบ Home Program ได้ กรุณาลองใหม่อีกครั้ง'
+  } finally {
+    deletingHomeProgramActivityId.value = ''
+  }
+}
+
 async function submitEvaluation() {
-  errorMessage.value = ""
-  successMessage.value = ""
+  errorMessage.value = ''
+  successMessage.value = ''
   isSubmitting.value = true
 
   try {
@@ -300,22 +404,22 @@ async function submitEvaluation() {
       }
       return {
         ...session,
-        status: "completed",
+        status: 'completed',
         has_denver_evaluation: true,
       }
     })
-    successMessage.value = "บันทึกผลประเมิน Denver II แล้ว"
+    successMessage.value = 'บันทึกผลประเมิน Denver II แล้ว'
     isEvaluationModalOpen.value = false
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถบันทึกผลประเมินได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถบันทึกผลประเมินได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmitting.value = false
   }
 }
 
 function goBack() {
-  router.push({ name: "caregiver-home" })
+  router.push({ name: 'caregiver-home' })
 }
 
 onMounted(loadPage)
@@ -329,14 +433,21 @@ onMounted(loadPage)
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <div class="user-chip">{{ authStore.user?.full_name ?? "นักบำบัด" }}</div>
+      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
+        <img
+          v-if="authStore.user?.profile_image_data"
+          :src="authStore.user.profile_image_data"
+          alt=""
+        />
+        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
+      </RouterLink>
     </nav>
 
     <section class="development-shell" aria-labelledby="development-title">
       <div class="page-heading">
         <div>
           <h1 id="development-title">
-            {{ kid?.full_name ?? "ติดตามพัฒนาการเด็ก" }}
+            {{ kid?.full_name ?? 'ติดตามพัฒนาการเด็ก' }}
           </h1>
         </div>
 
@@ -353,9 +464,7 @@ onMounted(loadPage)
       <p v-if="errorMessage" class="form-alert form-alert--error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="form-alert form-alert--success">{{ successMessage }}</p>
 
-      <div v-if="isLoading" class="surface-panel loading-panel">
-        กำลังโหลดข้อมูลพัฒนาการ...
-      </div>
+      <div v-if="isLoading" class="surface-panel loading-panel">กำลังโหลดข้อมูลพัฒนาการ...</div>
 
       <template v-else-if="kid">
         <div class="summary-strip" aria-label="ภาพรวมพัฒนาการ">
@@ -369,7 +478,7 @@ onMounted(loadPage)
           </div>
           <div class="summary-item">
             <span>นัดล่าสุด</span>
-            <strong>{{ latestEvaluation ? scheduleLabel(latestEvaluation) : "รอประเมิน" }}</strong>
+            <strong>{{ latestEvaluation ? scheduleLabel(latestEvaluation) : 'รอประเมิน' }}</strong>
           </div>
         </div>
 
@@ -390,9 +499,9 @@ onMounted(loadPage)
             <div>
               <dt>ที่อยู่</dt>
               <dd>
-                {{ kid.address.house_no ? `${kid.address.house_no} ` : "" }}
-                {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : "" }}
-                {{ kid.address.road ? `ถนน${kid.address.road} ` : "" }}
+                {{ kid.address.house_no ? `${kid.address.house_no} ` : '' }}
+                {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : '' }}
+                {{ kid.address.road ? `ถนน${kid.address.road} ` : '' }}
                 {{ kid.address.subdistrict }}, {{ kid.address.district }},
                 {{ kid.address.province }} {{ kid.address.postal_code }}
               </dd>
@@ -445,9 +554,9 @@ onMounted(loadPage)
               <div>
                 <dt>ที่อยู่</dt>
                 <dd>
-                  {{ kid.address.house_no ? `${kid.address.house_no} ` : "" }}
-                  {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : "" }}
-                  {{ kid.address.road ? `ถนน${kid.address.road} ` : "" }}
+                  {{ kid.address.house_no ? `${kid.address.house_no} ` : '' }}
+                  {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : '' }}
+                  {{ kid.address.road ? `ถนน${kid.address.road} ` : '' }}
                   {{ kid.address.subdistrict }}, {{ kid.address.district }},
                   {{ kid.address.province }} {{ kid.address.postal_code }}
                 </dd>
@@ -483,10 +592,26 @@ onMounted(loadPage)
                 <tr v-for="evaluation in evaluations" :key="evaluation.id">
                   <td>{{ sessionLabel(evaluation.evaluation_name) }}</td>
                   <td>{{ scheduleLabel(evaluation) }}</td>
-                  <td><span :class="resultClass(evaluation.aspect_1_result)">{{ resultLabel(evaluation.aspect_1_result) }}</span></td>
-                  <td><span :class="resultClass(evaluation.aspect_2_result)">{{ resultLabel(evaluation.aspect_2_result) }}</span></td>
-                  <td><span :class="resultClass(evaluation.aspect_3_result)">{{ resultLabel(evaluation.aspect_3_result) }}</span></td>
-                  <td><span :class="resultClass(evaluation.aspect_4_result)">{{ resultLabel(evaluation.aspect_4_result) }}</span></td>
+                  <td>
+                    <span :class="resultClass(evaluation.aspect_1_result)">{{
+                      resultLabel(evaluation.aspect_1_result)
+                    }}</span>
+                  </td>
+                  <td>
+                    <span :class="resultClass(evaluation.aspect_2_result)">{{
+                      resultLabel(evaluation.aspect_2_result)
+                    }}</span>
+                  </td>
+                  <td>
+                    <span :class="resultClass(evaluation.aspect_3_result)">{{
+                      resultLabel(evaluation.aspect_3_result)
+                    }}</span>
+                  </td>
+                  <td>
+                    <span :class="resultClass(evaluation.aspect_4_result)">{{
+                      resultLabel(evaluation.aspect_4_result)
+                    }}</span>
+                  </td>
                   <td>
                     <div class="table-action-group">
                       <button
@@ -568,15 +693,15 @@ onMounted(loadPage)
 
               <label>
                 <span>หมายเหตุ</span>
-                <input
-                  v-model="homeProgramForm.note"
-                  type="text"
-                  placeholder="ถ้ามี"
-                />
+                <input v-model="homeProgramForm.note" type="text" placeholder="ถ้ามี" />
               </label>
 
-              <button class="primary-action wide-field" type="submit" :disabled="isSubmittingHomeProgram">
-                {{ isSubmittingHomeProgram ? "กำลังบันทึก..." : "เพิ่ม Home Program" }}
+              <button
+                class="primary-action wide-field"
+                type="submit"
+                :disabled="isSubmittingHomeProgram"
+              >
+                {{ isSubmittingHomeProgram ? 'กำลังบันทึก...' : 'เพิ่ม Home Program' }}
               </button>
             </form>
 
@@ -618,9 +743,7 @@ onMounted(loadPage)
           <div>
             <p class="eyebrow">Denver II</p>
             <h2 id="evaluation-modal-title">ประเมินเด็ก</h2>
-            <p>
-              ครั้งที่ {{ nextSessionNumber }} · {{ therapySessionLabel(nextTherapySession) }}
-            </p>
+            <p>ครั้งที่ {{ nextSessionNumber }} · {{ therapySessionLabel(nextTherapySession) }}</p>
           </div>
           <button
             class="modal-close-button"
@@ -633,29 +756,17 @@ onMounted(loadPage)
         </header>
 
         <form class="evaluation-form" @submit.prevent="submitEvaluation">
-          <fieldset
-            v-for="aspect in aspectOptions"
-            :key="aspect.key"
-            class="aspect-field"
-          >
+          <fieldset v-for="aspect in aspectOptions" :key="aspect.key" class="aspect-field">
             <legend>
               {{ aspect.label }}
               <small>{{ aspect.helper }}</small>
             </legend>
             <label>
-              <input
-                v-model="form[aspect.key]"
-                type="radio"
-                value="pass"
-              />
+              <input v-model="form[aspect.key]" type="radio" value="pass" />
               <span>ผ่าน</span>
             </label>
             <label>
-              <input
-                v-model="form[aspect.key]"
-                type="radio"
-                value="fail"
-              />
+              <input v-model="form[aspect.key]" type="radio" value="fail" />
               <span>ไม่ผ่าน</span>
             </label>
           </fieldset>
@@ -669,7 +780,7 @@ onMounted(loadPage)
               type="submit"
               :disabled="isSubmitting || !nextTherapySession"
             >
-              {{ isSubmitting ? "กำลังบันทึก..." : "บันทึกผลประเมิน" }}
+              {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึกผลประเมิน' }}
             </button>
           </div>
         </form>
@@ -688,7 +799,9 @@ onMounted(loadPage)
         <header class="evaluation-modal-header">
           <div>
             <p class="eyebrow">Home Program</p>
-            <h2 id="home-program-modal-title">เพิ่มโฮมโปรแกรม</h2>
+            <h2 id="home-program-modal-title">
+              {{ editingHomeProgramActivityId ? 'แก้ไขโฮมโปรแกรม' : 'เพิ่มโฮมโปรแกรม' }}
+            </h2>
             <p>{{ selectedHomeProgramEvaluationLabel }}</p>
           </div>
           <button
@@ -701,8 +814,11 @@ onMounted(loadPage)
           </button>
         </header>
 
-        <form class="home-program-form home-program-form--modal" @submit.prevent="submitHomeProgramActivity">
-          <label>
+        <form
+          class="home-program-form home-program-form--modal"
+          @submit.prevent="submitHomeProgramActivity"
+        >
+          <label class="aspect-select-field wide-field">
             <span>ด้านพัฒนาการ</span>
             <select v-model="homeProgramForm.aspect" required>
               <option
@@ -714,6 +830,55 @@ onMounted(loadPage)
               </option>
             </select>
           </label>
+
+          <section class="template-picker wide-field" aria-label="เลือกกิจกรรมจาก CARE Program">
+            <div class="template-picker-header">
+              <div>
+                <span>CARE Program</span>
+                <h3>กิจกรรมแนะนำสำหรับ {{ homeProgramAspectLabel(homeProgramForm.aspect) }}</h3>
+              </div>
+              <label>
+                <span>ช่วงวัย</span>
+                <select v-model="selectedTemplateAgeRange">
+                  <option value="">ทุกช่วงวัย</option>
+                  <option
+                    v-for="ageRange in templateAgeOptions"
+                    :key="ageRange.months"
+                    :value="String(ageRange.months)"
+                  >
+                    {{ ageRange.label }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div v-if="visibleHomeProgramTemplates.length === 0" class="template-empty">
+              ไม่พบกิจกรรมต้นแบบในด้านนี้
+            </div>
+            <div v-else class="template-list">
+              <article
+                v-for="template in visibleHomeProgramTemplates"
+                :key="template.id"
+                class="template-card"
+              >
+                <div>
+                  <span class="template-meta"
+                    >{{ template.age_range }} · {{ homeProgramAspectLabel(template.aspect) }}</span
+                  >
+                  <h4>{{ template.title }}</h4>
+                </div>
+                <p>{{ template.instruction }}</p>
+                <small v-if="template.materials">อุปกรณ์: {{ template.materials }}</small>
+                <button
+                  type="button"
+                  class="secondary-action"
+                  @click="applyHomeProgramTemplate(template)"
+                >
+                  ใช้กิจกรรมนี้
+                </button>
+              </article>
+            </div>
+          </section>
 
           <label>
             <span>ชื่อกิจกรรม</span>
@@ -748,11 +913,7 @@ onMounted(loadPage)
 
           <label>
             <span>หมายเหตุ</span>
-            <input
-              v-model="homeProgramForm.note"
-              type="text"
-              placeholder="ถ้ามี"
-            />
+            <input v-model="homeProgramForm.note" type="text" placeholder="ถ้ามี" />
           </label>
 
           <div class="modal-actions">
@@ -760,7 +921,13 @@ onMounted(loadPage)
               ยกเลิก
             </button>
             <button class="primary-action" type="submit" :disabled="isSubmittingHomeProgram">
-              {{ isSubmittingHomeProgram ? "กำลังบันทึก..." : "บันทึกโฮมโปรแกรม" }}
+              {{
+                isSubmittingHomeProgram
+                  ? 'กำลังบันทึก...'
+                  : editingHomeProgramActivityId
+                    ? 'บันทึกการแก้ไข'
+                    : 'บันทึกโฮมโปรแกรม'
+              }}
             </button>
           </div>
         </form>
@@ -802,9 +969,30 @@ onMounted(loadPage)
             :key="activity.id"
             class="home-program-card"
           >
-            <div>
-              <span class="program-aspect">{{ homeProgramAspectLabel(activity.aspect) }}</span>
-              <h3>{{ activity.title }}</h3>
+            <div class="home-program-card-header">
+              <div>
+                <span class="program-aspect">{{ homeProgramAspectLabel(activity.aspect) }}</span>
+                <h3>{{ activity.title }}</h3>
+              </div>
+              <div class="home-program-card-actions" aria-label="จัดการโฮมโปรแกรม">
+                <button
+                  type="button"
+                  class="card-icon-button"
+                  aria-label="แก้ไขโฮมโปรแกรม"
+                  @click="startEditHomeProgramActivity(activity)"
+                >
+                  <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="card-icon-button card-icon-button--danger"
+                  aria-label="ลบโฮมโปรแกรม"
+                  :disabled="deletingHomeProgramActivityId === activity.id"
+                  @click="removeHomeProgramActivity(activity)"
+                >
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <small>{{ selectedHomeProgramDetailLabel }}</small>
             <p>{{ activity.instruction }}</p>
@@ -1059,6 +1247,103 @@ h2 {
   border-bottom: 0;
 }
 
+.aspect-select-field {
+  border: 1px solid rgb(78 115 223 / 0.18);
+  border-radius: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  background: #ffffff;
+}
+
+.template-picker {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgb(78 115 223 / 0.18);
+  border-radius: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  background: #f8fbff;
+}
+
+.template-picker-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.template-picker-header > div > span,
+.template-meta {
+  color: var(--admin-primary);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.template-picker-header h3 {
+  margin: 0.15rem 0 0;
+  color: var(--admin-text);
+  font-size: 1rem;
+}
+
+.template-picker-header label {
+  width: min(13rem, 100%);
+}
+
+.template-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  max-height: 15rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.template-card {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  border: 1px solid #dce8ff;
+  border-left: 4px solid var(--admin-primary);
+  border-radius: 0.55rem;
+  padding: 0.8rem;
+  background: #ffffff;
+}
+
+.template-card h4,
+.template-card p {
+  margin: 0;
+}
+
+.template-card h4 {
+  color: var(--admin-text);
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+
+.template-card p {
+  color: #5a5c69;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.template-card small {
+  color: #858796;
+  font-weight: 750;
+}
+
+.template-card .secondary-action {
+  min-height: 2.15rem;
+  justify-self: start;
+  padding-inline: 0.75rem;
+}
+
+.template-empty {
+  border: 1px dashed #c8d5ef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #858796;
+  background: #ffffff;
+  text-align: center;
+}
+
 .evaluation-form label,
 .home-program-form label,
 .aspect-field label {
@@ -1068,7 +1353,7 @@ h2 {
   font-weight: 750;
 }
 
-.evaluation-form input[type="text"],
+.evaluation-form input[type='text'],
 .evaluation-form input:not([type]),
 .home-program-form input,
 .home-program-form select,
@@ -1080,7 +1365,7 @@ h2 {
   background: #ffffff;
 }
 
-.evaluation-form input[type="text"],
+.evaluation-form input[type='text'],
 .evaluation-form input:not([type]),
 .home-program-form input,
 .home-program-form select {
@@ -1287,6 +1572,58 @@ h2 {
 .home-program-card h3 {
   color: var(--admin-text);
   font-size: 1rem;
+}
+
+.home-program-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-program-card-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.4rem;
+}
+
+.card-icon-button {
+  display: inline-grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid #b7cdfd;
+  border-radius: 0.35rem;
+  color: var(--admin-primary);
+  background: #f3f7ff;
+  font-size: 0.95rem;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.card-icon-button:hover:not(:disabled) {
+  border-color: var(--admin-primary);
+  color: #ffffff;
+  background: var(--admin-primary);
+}
+
+.card-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.card-icon-button--danger {
+  border-color: #f5b7b1;
+  color: #e74a3b;
+  background: #fff5f5;
+}
+
+.card-icon-button--danger:hover:not(:disabled) {
+  border-color: #e74a3b;
+  color: #ffffff;
+  background: #e74a3b;
 }
 
 .home-program-card p {

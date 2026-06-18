@@ -30,6 +30,12 @@ const router = createRouter({
       component: () => import('../views/auth/LoginView.vue'),
     },
     {
+      path: '/account',
+      name: 'account',
+      component: () => import('../views/auth/AccountView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/register/caregiver',
       name: 'register-caregiver',
       component: () => import('../views/register/RegisterCaregiverView.vue'),

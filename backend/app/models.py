@@ -16,6 +16,13 @@ class UserRole(StrEnum):
     VILLAGE_VOLUNTEER = "village_volunteer"
 
 
+class UserGender(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
+
+
 class DenverAspectResult(StrEnum):
     PASS = "pass"
     FAIL = "fail"
@@ -35,8 +42,11 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), index=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(30), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    profile_image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -158,6 +168,8 @@ class Kid(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     thai_id: Mapped[str] = mapped_column(String(13), unique=True, index=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(30), nullable=True)
     address_id: Mapped[int] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     created_by_case_manager_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
-import { RouterLink } from "vue-router"
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import { ApiError } from "../../api/client"
+import { ApiError } from '../../api/client'
 import {
   listMyVillageVolunteerAssignedKids,
   listVillageVolunteerHomeProgramActivities,
   type HomeProgramActivityResponse,
   type KidResponse,
-} from "../../api/kids"
-import { useAuthStore } from "../../stores/auth"
+} from '../../api/kids'
+import { useAuthStore } from '../../stores/auth'
 
 const authStore = useAuthStore()
 const kids = ref<KidResponse[]>([])
 const homeProgramsByKidId = ref<Record<string, HomeProgramActivityResponse[]>>({})
-const loadingHomeProgramKidId = ref("")
+const loadingHomeProgramKidId = ref('')
 const expandedKidIds = ref<Set<string>>(new Set())
 const isLoading = ref(false)
-const errorMessage = ref("")
+const errorMessage = ref('')
 
 const assignedTherapistCount = computed(() => {
   return kids.value.filter((kid) => kid.assigned_caregiver).length
@@ -28,10 +28,10 @@ const totalHomeProgramCount = computed(() => {
 })
 
 const homeProgramAspectLabels: Record<string, string> = {
-  personal_social: "ส่วนบุคคล-สังคม",
-  fine_motor_adaptive: "กล้ามเนื้อมัดเล็กและการปรับตัว",
-  language: "ภาษา",
-  gross_motor: "กล้ามเนื้อมัดใหญ่",
+  personal_social: 'ส่วนบุคคล-สังคม',
+  fine_motor_adaptive: 'กล้ามเนื้อมัดเล็กและการปรับตัว',
+  language: 'ภาษา',
+  gross_motor: 'กล้ามเนื้อมัดใหญ่',
 }
 
 function homeProgramAspectLabel(aspect: string) {
@@ -39,19 +39,19 @@ function homeProgramAspectLabel(aspect: string) {
 }
 
 function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
   }).format(new Date(value))
 }
 
 function evaluationLabel(activity: HomeProgramActivityResponse) {
-  return activity.evaluation_id ? "ผูกกับผลประเมินแล้ว" : "ยังไม่ผูกกับผลประเมิน"
+  return activity.evaluation_id ? 'ผูกกับผลประเมินแล้ว' : 'ยังไม่ผูกกับผลประเมิน'
 }
 
 async function loadHomePrograms(kidId: string) {
   loadingHomeProgramKidId.value = kidId
-  errorMessage.value = ""
+  errorMessage.value = ''
 
   try {
     homeProgramsByKidId.value = {
@@ -60,9 +60,9 @@ async function loadHomePrograms(kidId: string) {
     }
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถโหลดโฮมโปรแกรมได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถโหลดโฮมโปรแกรมได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
-    loadingHomeProgramKidId.value = ""
+    loadingHomeProgramKidId.value = ''
   }
 }
 
@@ -81,13 +81,13 @@ async function toggleKidDetails(kidId: string) {
 
 async function loadKids() {
   isLoading.value = true
-  errorMessage.value = ""
+  errorMessage.value = ''
 
   try {
     kids.value = await listMyVillageVolunteerAssignedKids()
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถโหลดรายชื่อเด็กได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถโหลดรายชื่อเด็กได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isLoading.value = false
   }
@@ -104,7 +104,14 @@ onMounted(loadKids)
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <div class="user-chip">{{ authStore.user?.full_name ?? "ผู้ดูแลเด็ก" }}</div>
+      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
+        <img
+          v-if="authStore.user?.profile_image_data"
+          :src="authStore.user.profile_image_data"
+          alt=""
+        />
+        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
+      </RouterLink>
     </nav>
 
     <section class="dashboard-shell" aria-labelledby="volunteer-title">
@@ -150,9 +157,7 @@ onMounted(loadKids)
           </button>
         </div>
 
-        <div v-if="kids.length === 0" class="empty-state">
-          ยังไม่มีเด็กที่ได้รับมอบหมาย
-        </div>
+        <div v-if="kids.length === 0" class="empty-state">ยังไม่มีเด็กที่ได้รับมอบหมาย</div>
 
         <table v-else>
           <thead>
@@ -169,9 +174,11 @@ onMounted(loadKids)
                 <td>
                   <span
                     class="status-pill"
-                    :class="kid.assigned_caregiver ? 'status-pill--success' : 'status-pill--neutral'"
+                    :class="
+                      kid.assigned_caregiver ? 'status-pill--success' : 'status-pill--neutral'
+                    "
                   >
-                    {{ kid.assigned_caregiver?.full_name ?? "ยังไม่จับคู่" }}
+                    {{ kid.assigned_caregiver?.full_name ?? 'ยังไม่จับคู่' }}
                   </span>
                 </td>
                 <td class="actions-cell">
@@ -179,10 +186,12 @@ onMounted(loadKids)
                     type="button"
                     class="icon-toggle-button"
                     :aria-expanded="expandedKidIds.has(kid.id)"
-                    :aria-label="expandedKidIds.has(kid.id) ? 'ซ่อนรายละเอียดเด็ก' : 'ดูรายละเอียดเด็ก'"
+                    :aria-label="
+                      expandedKidIds.has(kid.id) ? 'ซ่อนรายละเอียดเด็ก' : 'ดูรายละเอียดเด็ก'
+                    "
                     @click="toggleKidDetails(kid.id)"
                   >
-                    {{ expandedKidIds.has(kid.id) ? "ซ่อน" : "ดู" }}
+                    {{ expandedKidIds.has(kid.id) ? 'ซ่อน' : 'ดู' }}
                   </button>
                 </td>
               </tr>
@@ -200,11 +209,14 @@ onMounted(loadKids)
                       </div>
                       <div class="info-item info-item--wide">
                         <span>ที่อยู่</span>
-                        <strong>{{ kid.address.subdistrict }}, {{ kid.address.district }}, {{ kid.address.province }} {{ kid.address.postal_code }}</strong>
+                        <strong
+                          >{{ kid.address.subdistrict }}, {{ kid.address.district }},
+                          {{ kid.address.province }} {{ kid.address.postal_code }}</strong
+                        >
                       </div>
                       <div class="info-item">
                         <span>นักบำบัด</span>
-                        <strong>{{ kid.assigned_caregiver?.full_name ?? "-" }}</strong>
+                        <strong>{{ kid.assigned_caregiver?.full_name ?? '-' }}</strong>
                       </div>
                     </section>
 
@@ -214,18 +226,23 @@ onMounted(loadKids)
                           <span class="section-kicker">Home Program</span>
                           <h3>โฮมโปรแกรมล่าสุดสำหรับครอบครัว</h3>
                         </div>
-                      <button
-                        type="button"
-                        class="refresh-link"
-                        :disabled="loadingHomeProgramKidId === kid.id"
-                        @click="loadHomePrograms(kid.id)"
-                      >
-                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                        <span>{{ loadingHomeProgramKidId === kid.id ? "กำลังโหลด" : "รีเฟรช" }}</span>
-                      </button>
+                        <button
+                          type="button"
+                          class="refresh-link"
+                          :disabled="loadingHomeProgramKidId === kid.id"
+                          @click="loadHomePrograms(kid.id)"
+                        >
+                          <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                          <span>{{
+                            loadingHomeProgramKidId === kid.id ? 'กำลังโหลด' : 'รีเฟรช'
+                          }}</span>
+                        </button>
                       </div>
 
-                      <div v-if="loadingHomeProgramKidId === kid.id" class="empty-state empty-state--compact">
+                      <div
+                        v-if="loadingHomeProgramKidId === kid.id"
+                        class="empty-state empty-state--compact"
+                      >
                         กำลังโหลดโฮมโปรแกรม...
                       </div>
                       <div
@@ -241,8 +258,12 @@ onMounted(loadKids)
                           class="home-program-card"
                         >
                           <div class="program-card-head">
-                            <span class="program-aspect">{{ homeProgramAspectLabel(activity.aspect) }}</span>
-                            <span class="program-date">{{ formatDateTime(activity.created_at) }}</span>
+                            <span class="program-aspect">{{
+                              homeProgramAspectLabel(activity.aspect)
+                            }}</span>
+                            <span class="program-date">{{
+                              formatDateTime(activity.created_at)
+                            }}</span>
                           </div>
                           <h4>{{ activity.title }}</h4>
                           <p>{{ activity.instruction }}</p>
@@ -320,7 +341,7 @@ onMounted(loadKids)
   border: 0.28rem solid #ffffff;
   border-top-color: rgb(255 255 255 / 0.46);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {
@@ -582,11 +603,11 @@ td:nth-child(3) {
   height: 0.5rem;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
-  content: "";
+  content: '';
   transform: translateY(-0.12rem) rotate(45deg);
 }
 
-.icon-toggle-button[aria-expanded="true"]::before {
+.icon-toggle-button[aria-expanded='true']::before {
   transform: translateY(0.12rem) rotate(225deg);
 }
 

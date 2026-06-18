@@ -1,37 +1,45 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue"
-import { RouterLink } from "vue-router"
+import { computed, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import { registerVillageVolunteer, type VillageVolunteerRegisterPayload } from "../../api/auth"
-import { ApiError } from "../../api/client"
+import { registerVillageVolunteer, type VillageVolunteerRegisterPayload } from '../../api/auth'
+import { ApiError } from '../../api/client'
 import {
   thaiAddressData,
   type ThaiDistrict,
   type ThaiProvince,
   type ThaiSubdistrict,
-} from "../../data/thaiAddress"
-import { toDigits } from "../../utils/digits"
+} from '../../data/thaiAddress'
+import { toDigits } from '../../utils/digits'
 
 const provinceOptions = [...thaiAddressData.provinces]
+const genderOptions = [
+  { value: 'male', label: 'ชาย' },
+  { value: 'female', label: 'หญิง' },
+  { value: 'other', label: 'อื่น ๆ' },
+  { value: 'prefer_not_to_say', label: 'ไม่ระบุ' },
+]
 
 const form = reactive({
-  thai_id: "",
-  password: "",
-  full_name: "",
-  phone: "",
-  email: "",
-  hospital_or_clinic: "",
-  house_no: "",
-  village_no: "",
-  road: "",
-  province_id: "",
-  district_id: "",
-  subdistrict_id: "",
+  thai_id: '',
+  password: '',
+  full_name: '',
+  date_of_birth: '',
+  gender: '',
+  phone: '',
+  email: '',
+  hospital_or_clinic: '',
+  house_no: '',
+  village_no: '',
+  road: '',
+  province_id: '',
+  district_id: '',
+  subdistrict_id: '',
 })
 
 const isSubmitting = ref(false)
-const errorMessage = ref("")
-const successMessage = ref("")
+const errorMessage = ref('')
+const successMessage = ref('')
 
 function updateThaiId(event: Event) {
   form.thai_id = toDigits((event.target as HTMLInputElement).value)
@@ -66,11 +74,13 @@ const subdistrictOptions = computed<ThaiSubdistrict[]>(() => {
 })
 
 const selectedSubdistrict = computed<ThaiSubdistrict | undefined>(() => {
-  return subdistrictOptions.value.find((subdistrict) => String(subdistrict.id) === form.subdistrict_id)
+  return subdistrictOptions.value.find(
+    (subdistrict) => String(subdistrict.id) === form.subdistrict_id,
+  )
 })
 
 const postalCode = computed(() => {
-  return selectedSubdistrict.value ? String(selectedSubdistrict.value.zip_code) : ""
+  return selectedSubdistrict.value ? String(selectedSubdistrict.value.zip_code) : ''
 })
 
 function optionalValue(value: string): string | null {
@@ -79,12 +89,12 @@ function optionalValue(value: string): string | null {
 }
 
 function resetDistrictSelection() {
-  form.district_id = ""
-  form.subdistrict_id = ""
+  form.district_id = ''
+  form.subdistrict_id = ''
 }
 
 function resetSubdistrictSelection() {
-  form.subdistrict_id = ""
+  form.subdistrict_id = ''
 }
 
 function buildPayload(): VillageVolunteerRegisterPayload {
@@ -92,6 +102,8 @@ function buildPayload(): VillageVolunteerRegisterPayload {
     thai_id: form.thai_id.trim(),
     password: form.password,
     full_name: form.full_name.trim(),
+    date_of_birth: form.date_of_birth,
+    gender: form.gender,
     phone: optionalValue(form.phone),
     email: optionalValue(form.email),
     hospital_or_clinic: form.hospital_or_clinic.trim(),
@@ -99,18 +111,18 @@ function buildPayload(): VillageVolunteerRegisterPayload {
       house_no: optionalValue(form.house_no),
       village_no: optionalValue(form.village_no),
       road: optionalValue(form.road),
-      subdistrict: selectedSubdistrict.value?.name_in_thai ?? "",
-      district: selectedDistrict.value?.name_in_thai ?? "",
-      province: selectedProvince.value?.name_in_thai ?? "",
+      subdistrict: selectedSubdistrict.value?.name_in_thai ?? '',
+      district: selectedDistrict.value?.name_in_thai ?? '',
+      province: selectedProvince.value?.name_in_thai ?? '',
       postal_code: postalCode.value,
-      country: "Thailand",
+      country: 'Thailand',
     },
   }
 }
 
 async function submitForm() {
-  errorMessage.value = ""
-  successMessage.value = ""
+  errorMessage.value = ''
+  successMessage.value = ''
   isSubmitting.value = true
 
   try {
@@ -118,7 +130,7 @@ async function submitForm() {
     successMessage.value = `สมัครบัญชีผู้ดูแลเด็กสำเร็จ: ${user.full_name}`
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถสมัครใช้งานได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถสมัครใช้งานได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmitting.value = false
   }
@@ -186,6 +198,21 @@ async function submitForm() {
           <label>
             <span>ชื่อ-นามสกุล <strong class="required-marker">*</strong></span>
             <input v-model="form.full_name" required maxlength="160" autocomplete="name" />
+          </label>
+
+          <label>
+            <span>วันเดือนปีเกิด <strong class="required-marker">*</strong></span>
+            <input v-model="form.date_of_birth" type="date" required autocomplete="bday" />
+          </label>
+
+          <label>
+            <span>เพศ <strong class="required-marker">*</strong></span>
+            <select v-model="form.gender" required>
+              <option value="" disabled>เลือกเพศ</option>
+              <option v-for="option in genderOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </label>
 
           <label class="wide-field">
@@ -288,7 +315,7 @@ async function submitForm() {
 
         <div class="form-actions">
           <button class="primary-action" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? "กำลังสมัคร..." : "สมัครบัญชี" }}
+            {{ isSubmitting ? 'กำลังสมัคร...' : 'สมัครบัญชี' }}
           </button>
         </div>
       </form>
@@ -303,7 +330,12 @@ async function submitForm() {
   overflow: hidden;
   background:
     radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      var(--color-background) 46%,
+      var(--color-background-soft) 100%
+    );
 }
 
 .register-form-page::before {
@@ -350,7 +382,7 @@ async function submitForm() {
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {

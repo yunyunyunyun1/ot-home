@@ -1,37 +1,37 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue"
-import { RouterLink, useRouter } from "vue-router"
+import { reactive, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 
-import { login } from "../../api/auth"
-import { ApiError } from "../../api/client"
-import { useAuthStore } from "../../stores/auth"
-import { toDigits } from "../../utils/digits"
+import { login } from '../../api/auth'
+import { ApiError } from '../../api/client'
+import { useAuthStore } from '../../stores/auth'
+import { toDigits } from '../../utils/digits'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const form = reactive({
-  thai_id: "",
-  password: "",
+  thai_id: '',
+  password: '',
 })
 
 const isSubmitting = ref(false)
-const errorMessage = ref("")
+const errorMessage = ref('')
 
 function updateThaiId(event: Event) {
   form.thai_id = toDigits((event.target as HTMLInputElement).value)
 }
 
 const roleRedirects: Record<string, string> = {
-  admin: "/admin",
-  parent: "/parent",
-  case_manager: "/case-manager",
-  caregiver: "/caregiver",
-  village_volunteer: "/village-volunteer",
+  admin: '/admin',
+  parent: '/parent',
+  case_manager: '/case-manager',
+  caregiver: '/caregiver',
+  village_volunteer: '/village-volunteer',
 }
 
 async function submitForm() {
-  errorMessage.value = ""
+  errorMessage.value = ''
   isSubmitting.value = true
 
   try {
@@ -40,10 +40,10 @@ async function submitForm() {
       password: form.password,
     })
     authStore.setSession(session.access_token, session.user)
-    await router.push(roleRedirects[session.user.role] ?? "/")
+    await router.push(roleRedirects[session.user.role] ?? '/')
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : "ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง"
+      error instanceof ApiError ? error.message : 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSubmitting.value = false
   }
@@ -106,7 +106,7 @@ async function submitForm() {
 
         <div class="form-actions">
           <button class="primary-action" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ" }}
+            {{ isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
           </button>
         </div>
       </form>
@@ -121,7 +121,12 @@ async function submitForm() {
   overflow: hidden;
   background:
     radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      var(--color-background) 46%,
+      var(--color-background-soft) 100%
+    );
 }
 
 .login-page::before {
@@ -168,7 +173,7 @@ async function submitForm() {
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {

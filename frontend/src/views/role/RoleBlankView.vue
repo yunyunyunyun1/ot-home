@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue"
-import { RouterLink } from "vue-router"
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps<{
   title: string
@@ -29,7 +29,12 @@ const pageTitle = computed(() => props.title)
   min-height: 100vh;
   background:
     radial-gradient(circle at top right, rgb(96 165 250 / 0.15), transparent 24rem),
-    linear-gradient(135deg, #ffffff 0%, var(--color-background) 46%, var(--color-background-soft) 100%);
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      var(--color-background) 46%,
+      var(--color-background-soft) 100%
+    );
 }
 
 .top-nav,
@@ -70,7 +75,7 @@ const pageTitle = computed(() => props.title)
   border: 0.3rem solid var(--color-primary);
   border-top-color: var(--color-secondary);
   border-radius: 50%;
-  content: "";
+  content: '';
 }
 
 .brand-name {
