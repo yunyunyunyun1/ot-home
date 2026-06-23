@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 
 import { ApiError } from '../../api/client'
 import { registerCaregiver, type CaregiverRegisterPayload } from '../../api/auth'
@@ -41,6 +41,7 @@ const form = reactive({
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const router = useRouter()
 
 function updateThaiId(event: Event) {
   form.thai_id = toDigits((event.target as HTMLInputElement).value)
@@ -129,6 +130,7 @@ async function submitForm() {
 
   try {
     const user = await registerCaregiver(buildPayload())
+    await router.push({ name: 'login' })
     successMessage.value = `สมัครบัญชีนักบำบัดสำเร็จ: ${user.full_name}`
   } catch (error) {
     errorMessage.value =

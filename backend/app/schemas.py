@@ -79,6 +79,15 @@ class CaseManagerCreate(UserBase, PasswordMixin):
     address: AddressCreate
 
 
+class CaseManagerUpdate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=160)
+    date_of_birth: date
+    gender: UserGender
+    phone: str | None = Field(default=None, max_length=30)
+    email: str | None = Field(default=None, max_length=255)
+    address: AddressCreate
+
+
 class UserRead(BaseModel):
     id: UUID
     thai_id_masked: str
@@ -121,7 +130,31 @@ class UserAccountUpdate(BaseModel):
         return value
 
 
+class AdminPasswordReset(BaseModel):
+    thai_id: ThaiId
+    temporary_password: StrongPassword
+
+    @field_validator("temporary_password")
+    @classmethod
+    def validate_strong_temporary_password(cls, value: str) -> str:
+        checks = [
+            any(char.islower() for char in value),
+            any(char.isupper() for char in value),
+            any(char.isdigit() for char in value),
+            any(not char.isalnum() for char in value),
+        ]
+        if not all(checks):
+            raise ValueError(
+                "Password must contain lowercase, uppercase, number, and special character"
+            )
+        return value
+
+
 class UserWithAddressRead(UserRead):
+    address: AddressRead
+
+
+class CaseManagerRead(UserRead):
     address: AddressRead
 
 
@@ -255,6 +288,13 @@ class TherapySessionRead(BaseModel):
 
 class DenverEvaluationCreate(BaseModel):
     evaluation_name: str = Field(min_length=1, max_length=3, pattern=r"^\d{1,3}$")
+    aspect_1_result: DenverAspectResult
+    aspect_2_result: DenverAspectResult
+    aspect_3_result: DenverAspectResult
+    aspect_4_result: DenverAspectResult
+
+
+class DenverEvaluationUpdate(BaseModel):
     aspect_1_result: DenverAspectResult
     aspect_2_result: DenverAspectResult
     aspect_3_result: DenverAspectResult

@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 
 import { ApiError } from '../../api/client'
 import { updateAccount } from '../../api/auth'
+import ProfileMenu from '../../components/ProfileMenu.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const authStore = useAuthStore()
@@ -156,10 +157,13 @@ function goBack() {
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <button class="back-button" type="button" @click="goBack">
-        <i class="bi bi-arrow-left" aria-hidden="true"></i>
-        <span>กลับ</span>
-      </button>
+      <div class="account-nav-actions">
+        <button class="back-button" type="button" @click="goBack">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          <span>กลับ</span>
+        </button>
+        <ProfileMenu />
+      </div>
     </nav>
 
     <section class="account-shell" aria-labelledby="account-title">
@@ -317,6 +321,12 @@ function goBack() {
   width: min(920px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1.5rem 0 4rem;
+}
+
+.account-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .account-heading,

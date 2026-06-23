@@ -203,6 +203,28 @@ def create_denver_evaluation(
         ) from exc
 
 
+@router.patch(
+    "/kids/{kid_id}/denver-evaluations/{evaluation_id}",
+    response_model=schemas.DenverEvaluationRead,
+)
+def update_denver_evaluation(
+    kid_id: UUID,
+    evaluation_id: UUID,
+    evaluation_in: schemas.DenverEvaluationUpdate,
+    caregiver: models.User = Depends(require_caregiver),
+    db: Session = Depends(get_db),
+):
+    kid = _get_assigned_kid(kid_id, caregiver, db)
+    evaluation = crud.get_denver_evaluation_for_kid(db, kid, evaluation_id)
+    if evaluation is None or evaluation.evaluated_by_caregiver_id != caregiver.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evaluation not found",
+        )
+    updated_evaluation = crud.update_denver_evaluation(db, evaluation, evaluation_in)
+    return denver_evaluation_to_read(updated_evaluation)
+
+
 @router.get(
     "/kids/{kid_id}/home-programs",
     response_model=list[schemas.HomeProgramActivityRead],

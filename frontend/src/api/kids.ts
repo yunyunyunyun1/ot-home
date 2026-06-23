@@ -82,6 +82,8 @@ export type DenverEvaluationPayload = {
   aspect_4_result: DenverAspectResult
 }
 
+export type DenverEvaluationUpdatePayload = Omit<DenverEvaluationPayload, 'evaluation_name'>
+
 export type DenverEvaluationResponse = DenverEvaluationPayload & {
   id: string
   kid_id: string
@@ -262,6 +264,17 @@ export function createDenverEvaluation(
 ): Promise<DenverEvaluationResponse> {
   return apiPost<DenverEvaluationResponse, DenverEvaluationPayload>(
     `/api/v1/caregiver/kids/${kidId}/denver-evaluations`,
+    payload,
+  )
+}
+
+export function updateDenverEvaluation(
+  kidId: string,
+  evaluationId: string,
+  payload: DenverEvaluationUpdatePayload,
+): Promise<DenverEvaluationResponse> {
+  return apiPatch<DenverEvaluationResponse, DenverEvaluationUpdatePayload>(
+    `/api/v1/caregiver/kids/${kidId}/denver-evaluations/${evaluationId}`,
     payload,
   )
 }

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import ProfileMenu from '../../components/ProfileMenu.vue'
 import {
   assignKidToCaregiver,
   assignKidToVillageVolunteer,
@@ -60,6 +61,7 @@ const assigningVillageVolunteerId = ref('')
 const selectedSlotByCaregiverId = ref<Record<string, string>>({})
 const editingKidId = ref('')
 const deletingKidId = ref('')
+const kidPendingDeletion = ref<KidResponse | null>(null)
 const directoryModalType = ref<'kids' | 'caregivers' | 'volunteers' | ''>('')
 const directorySearchTerm = ref('')
 const childSearchTerm = ref('')
@@ -127,14 +129,6 @@ const selectedKid = computed(() => {
   return kids.value.find((kid) => kid.id === selectedKidId.value)
 })
 
-const matchedKidsCount = computed(() => {
-  return kids.value.filter((kid) => kid.assigned_caregiver).length
-})
-
-const villageVolunteerMatchedKidsCount = computed(() => {
-  return kids.value.filter((kid) => kid.assigned_village_volunteers.length > 0).length
-})
-
 const directoryModalTitle = computed(() => {
   if (directoryModalType.value === 'kids') {
     return 'รายชื่อเด็ก'
@@ -162,6 +156,24 @@ const filteredVillageVolunteers = computed(() => {
 
 const directoryKids = computed(() => {
   return filterByName(kids.value, directorySearchTerm.value)
+})
+
+const hasKidFormDraft = computed(() => {
+  if (editingKidId.value) {
+    return true
+  }
+
+  return [
+    form.thai_id,
+    form.full_name,
+    form.date_of_birth,
+    form.gender,
+    form.house_no,
+    form.village_no,
+    form.road,
+    form.district_id,
+    form.subdistrict_id,
+  ].some((value) => value.trim())
 })
 
 const directoryCaregivers = computed(() => {
@@ -296,7 +308,9 @@ function resetForm() {
 }
 
 function openCreateKidPanel() {
-  resetForm()
+  if (editingKidId.value || !hasKidFormDraft.value) {
+    resetForm()
+  }
   errorMessage.value = ''
   successMessage.value = ''
   isKidPanelOpen.value = true
@@ -306,6 +320,20 @@ function closeKidModal() {
   if (isSubmitting.value) {
     return
   }
+  errorMessage.value = ''
+  successMessage.value = ''
+  isKidPanelOpen.value = false
+}
+
+function cancelKidModal() {
+  if (isSubmitting.value) {
+    return
+  }
+
+  if (hasKidFormDraft.value && !window.confirm('ต้องการปิดและล้างข้อมูลที่กรอกไว้ใช่ไหม?')) {
+    return
+  }
+
   resetForm()
   errorMessage.value = ''
   successMessage.value = ''
@@ -487,6 +515,24 @@ async function removeKid(kid: KidResponse) {
   }
 }
 
+function requestDeleteKid(kid: KidResponse) {
+  kidPendingDeletion.value = kid
+}
+
+function cancelDeleteKid() {
+  kidPendingDeletion.value = null
+}
+
+async function confirmDeleteKid() {
+  if (!kidPendingDeletion.value) {
+    return
+  }
+
+  const kid = kidPendingDeletion.value
+  kidPendingDeletion.value = null
+  await removeKid(kid)
+}
+
 function toggleKidDetails(kidId: string) {
   const next = new Set(expandedKidIds.value)
   if (next.has(kidId)) {
@@ -612,20 +658,12 @@ onMounted(async () => {
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
-        <img
-          v-if="authStore.user?.profile_image_data"
-          :src="authStore.user.profile_image_data"
-          alt=""
-        />
-        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
-      </RouterLink>
+      <ProfileMenu />
     </nav>
 
     <section class="dashboard-shell" aria-labelledby="case-manager-title">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">OT@HOME Case Manager</p>
           <h1 id="case-manager-title">ผู้ดูแลประจำจังหวัด {{ managerProvince || '...' }}</h1>
         </div>
 
@@ -635,10 +673,6 @@ onMounted(async () => {
             <strong>{{ kids.length }}</strong>
           </div>
           <div class="summary-item">
-            <span>จับคู่แล้ว</span>
-            <strong>{{ matchedKidsCount }}</strong>
-          </div>
-          <div class="summary-item">
             <span>นักบำบัด</span>
             <strong>{{ caregivers.length }}</strong>
           </div>
@@ -646,20 +680,12 @@ onMounted(async () => {
             <span>ผู้ดูแลเด็ก</span>
             <strong>{{ villageVolunteers.length }}</strong>
           </div>
-          <div class="summary-item">
-            <span>จับคู่ผู้ดูแล</span>
-            <strong>{{ villageVolunteerMatchedKidsCount }}</strong>
-          </div>
         </div>
       </div>
 
       <section class="command-center" aria-label="เมนูหลักสำหรับผู้ดูแลประจำจังหวัด">
         <div class="command-section">
-          <div class="command-heading">
-            <span class="command-kicker">รายชื่อ</span>
-            <h2>ดูข้อมูลทั้งหมดในพื้นที่</h2>
-          </div>
-          <div class="launcher-grid launcher-grid--directory">
+          <div class="launcher-grid">
             <button type="button" class="launcher-button" @click="openDirectoryModal('kids')">
               <span class="launcher-icon launcher-icon--child">
                 <i class="bi bi-person-hearts" aria-hidden="true"></i>
@@ -689,15 +715,7 @@ onMounted(async () => {
                 <small>{{ villageVolunteers.length }} คน</small>
               </span>
             </button>
-          </div>
-        </div>
 
-        <div class="command-section">
-          <div class="command-heading">
-            <span class="command-kicker">การจัดการ</span>
-            <h2>เพิ่มข้อมูลและจับคู่ทีมดูแล</h2>
-          </div>
-          <div class="launcher-grid launcher-grid--management">
             <button
               type="button"
               class="launcher-button launcher-button--primary"
@@ -772,78 +790,41 @@ onMounted(async () => {
               @click="selectedKidId = kid.id"
             >
               <div class="child-card-main">
-                <div>
-                  <h3>{{ kid.full_name }}</h3>
-                  <p>{{ kid.address.subdistrict }}, {{ kid.address.district }}</p>
-                </div>
+                <h3>{{ kid.full_name }}</h3>
                 <span class="match-status" :class="kidMatchStatus(kid).className">
                   {{ kidMatchStatus(kid).label }}
                 </span>
-              </div>
-
-              <div class="assignment-lines">
-                <span>
-                  <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
-                  {{ kid.assigned_caregiver?.full_name ?? 'ยังไม่มีนักบำบัด' }}
-                </span>
-                <span>
-                  <i class="bi bi-people" aria-hidden="true"></i>
-                  {{ villageVolunteerNames(kid) }}
-                </span>
-              </div>
-
-              <div class="child-card-actions">
-                <button type="button" class="text-button" @click.stop="fillFormFromKid(kid)">
-                  <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                  <span>แก้ไข</span>
-                </button>
-                <button
-                  type="button"
-                  class="danger-button"
-                  :disabled="deletingKidId === kid.id"
-                  @click.stop="removeKid(kid)"
-                >
-                  <i class="bi bi-trash" aria-hidden="true"></i>
-                  <span>{{ deletingKidId === kid.id ? 'กำลังลบ' : 'ลบ' }}</span>
-                </button>
               </div>
             </article>
           </div>
         </section>
 
         <section class="matching-panel assignment-panel" aria-label="จัดทีมดูแลเด็ก">
-          <div class="assignment-hero" :class="{ 'assignment-hero--empty': !selectedKid }">
-            <div>
-              <p class="eyebrow">Matching Workspace</p>
-              <h2>{{ selectedKid?.full_name ?? 'เลือกเด็กเพื่อเริ่มจับคู่' }}</h2>
-              <p>{{ selectedKidAddress() }}</p>
-            </div>
-            <span
-              v-if="selectedKid"
-              class="match-status"
-              :class="kidMatchStatus(selectedKid).className"
-            >
-              {{ kidMatchStatus(selectedKid).label }}
-            </span>
-          </div>
-
           <div v-if="!selectedKid" class="empty-selection">
             <i class="bi bi-diagram-3" aria-hidden="true"></i>
             <h3>เลือกเด็กจากรายการด้านซ้าย</h3>
-            <p>หลังเลือกแล้ว หน้านี้จะแสดงนักบำบัด เวลา และผู้ดูแลเด็กสำหรับการจับคู่ในที่เดียว</p>
+            <p>หลังเลือกแล้วจะแสดงตัวเลือกสำหรับจับคู่ในแผงนี้</p>
           </div>
 
           <template v-else>
-            <div class="current-team">
-              <div>
-                <span>นักบำบัดปัจจุบัน</span>
-                <strong>{{
-                  selectedKid.assigned_caregiver?.full_name ?? 'ยังไม่ได้จับคู่'
-                }}</strong>
+            <div class="assignment-summary">
+              <div class="assignment-summary-main">
+                <span class="assignment-summary-label">เด็กที่เลือก</span>
+                <strong>{{ selectedKid.full_name }}</strong>
+                <small>{{ selectedKidAddress() }}</small>
               </div>
-              <div>
-                <span>ผู้ดูแลเด็กปัจจุบัน</span>
-                <strong>{{ villageVolunteerNames(selectedKid) }}</strong>
+              <span class="match-status" :class="kidMatchStatus(selectedKid).className">
+                {{ kidMatchStatus(selectedKid).label }}
+              </span>
+              <div class="assignment-summary-meta">
+                <span>
+                  <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+                  {{ selectedKid.assigned_caregiver?.full_name ?? 'ยังไม่ได้จับคู่' }}
+                </span>
+                <span>
+                  <i class="bi bi-people" aria-hidden="true"></i>
+                  {{ villageVolunteerNames(selectedKid) }}
+                </span>
               </div>
             </div>
 
@@ -1128,7 +1109,7 @@ onMounted(async () => {
 
     <div
       v-if="isKidPanelOpen"
-      class="directory-modal-overlay"
+      class="directory-modal-overlay kid-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="kid-modal-title"
@@ -1273,7 +1254,7 @@ onMounted(async () => {
           <p v-if="successMessage" class="form-alert form-alert--success">{{ successMessage }}</p>
 
           <div class="form-actions kid-modal-actions">
-            <button class="secondary-action" type="button" @click="closeKidModal">ยกเลิก</button>
+            <button class="secondary-action" type="button" @click="cancelKidModal">ยกเลิก</button>
             <button class="primary-action" type="submit" :disabled="isSubmitting">
               {{
                 isSubmitting
@@ -1325,9 +1306,34 @@ onMounted(async () => {
             <div class="directory-card-body">
               <div class="directory-card-title">
                 <h3>{{ kid.full_name }}</h3>
-                <span class="match-status" :class="kidMatchStatus(kid).className">
-                  {{ kidMatchStatus(kid).label }}
-                </span>
+                <div class="directory-card-title-actions">
+                  <span class="match-status" :class="kidMatchStatus(kid).className">
+                    {{ kidMatchStatus(kid).label }}
+                  </span>
+                  <button
+                    type="button"
+                    class="icon-action icon-action--edit"
+                    aria-label="แก้ไขข้อมูลเด็ก"
+                    title="แก้ไขข้อมูลเด็ก"
+                    @click="fillFormFromKid(kid)"
+                  >
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-action icon-action--danger"
+                    :disabled="deletingKidId === kid.id"
+                    aria-label="ลบข้อมูลเด็ก"
+                    title="ลบข้อมูลเด็ก"
+                    @click="requestDeleteKid(kid)"
+                  >
+                    <i
+                      class="bi"
+                      :class="deletingKidId === kid.id ? 'bi-hourglass-split' : 'bi-trash'"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
               </div>
               <dl>
                 <div>
@@ -1476,6 +1482,36 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+
+    <div
+      v-if="kidPendingDeletion"
+      class="confirm-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-kid-title"
+      @click.self="cancelDeleteKid"
+    >
+      <section class="confirm-modal">
+        <span class="confirm-modal-icon confirm-modal-icon--danger" aria-hidden="true">
+          <i class="bi bi-trash"></i>
+        </span>
+        <div>
+          <h2 id="delete-kid-title">ยืนยันการลบข้อมูลเด็ก</h2>
+          <p>
+            ต้องการลบข้อมูลของ
+            <strong>{{ kidPendingDeletion.full_name }}</strong>
+            ใช่ไหม? การลบนี้จะนำเด็กออกจากรายการในพื้นที่
+          </p>
+        </div>
+        <div class="confirm-modal-actions">
+          <button type="button" class="secondary-action" @click="cancelDeleteKid">ยกเลิก</button>
+          <button type="button" class="danger-action" @click="confirmDeleteKid">
+            <i class="bi bi-trash" aria-hidden="true"></i>
+            <span>ลบข้อมูล</span>
+          </button>
+        </div>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -1590,7 +1626,7 @@ h2 {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid rgb(219 231 245 / 0.92);
   border-radius: 0.8rem;
@@ -1627,14 +1663,10 @@ h2 {
 
 .command-center {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
-  gap: 1rem;
   margin-top: 1.25rem;
 }
 
 .command-section {
-  display: grid;
-  gap: 0.85rem;
   border: 1px solid rgb(219 231 245 / 0.92);
   border-radius: var(--radius-panel);
   padding: 1rem;
@@ -1642,40 +1674,10 @@ h2 {
   box-shadow: var(--shadow-soft);
 }
 
-.command-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.command-heading h2 {
-  font-size: 1rem;
-}
-
-.command-kicker {
-  display: inline-flex;
-  min-height: 1.6rem;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.15rem 0.58rem;
-  color: var(--color-primary);
-  background: rgb(59 130 246 / 0.1);
-  font-size: 0.76rem;
-  font-weight: 900;
-}
-
 .launcher-grid {
   display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.7rem;
-}
-
-.launcher-grid--directory {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.launcher-grid--management {
-  grid-template-columns: 1fr;
 }
 
 .launcher-button {
@@ -1917,7 +1919,7 @@ select:focus {
 }
 
 .directory-search-field {
-  margin: 1rem 1rem 0;
+  margin: 1rem 1rem 0.75rem;
 }
 
 .form-alert {
@@ -2137,19 +2139,18 @@ select:focus {
 
 .child-card-list {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.45rem;
   max-height: min(47rem, calc(100vh - 8rem));
   overflow: auto;
-  padding: 0.85rem;
+  padding: 0.65rem;
 }
 
 .child-match-card {
-  display: grid;
-  gap: 0.75rem;
+  display: block;
   border: 1px solid rgb(219 231 245 / 0.9);
   border-left: 4px solid transparent;
-  border-radius: 0.7rem;
-  padding: 0.85rem;
+  border-radius: 0.55rem;
+  padding: 0.62rem 0.7rem;
   background: #ffffff;
   cursor: pointer;
   transition:
@@ -2173,12 +2174,15 @@ select:focus {
 
 .child-card-main,
 .resource-card-main,
-.resource-heading,
-.current-team {
+.resource-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.child-card-main {
+  align-items: center;
 }
 
 .child-card-main h3,
@@ -2189,7 +2193,10 @@ select:focus {
 }
 
 .child-card-main h3 {
-  font-size: 1rem;
+  overflow: hidden;
+  font-size: 0.96rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .child-card-main p,
@@ -2220,12 +2227,6 @@ select:focus {
   color: var(--color-primary);
 }
 
-.child-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
 .match-status {
   display: inline-flex;
   min-height: 1.75rem;
@@ -2254,36 +2255,15 @@ select:focus {
 
 .assignment-panel {
   display: grid;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.assignment-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border: 1px solid rgb(59 130 246 / 0.18);
-  border-radius: 0.8rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, rgb(59 130 246 / 0.09), transparent 44%), #ffffff;
-}
-
-.assignment-hero--empty {
-  border-style: dashed;
-  background: #fbfdff;
-}
-
-.assignment-hero h2 {
-  margin: 0;
-  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  gap: 0.85rem;
+  padding: 0.85rem;
 }
 
 .empty-selection {
   display: grid;
   justify-items: center;
-  gap: 0.55rem;
-  padding: 3.8rem 1rem;
+  gap: 0.45rem;
+  padding: 2rem 1rem;
   color: var(--color-muted);
   text-align: center;
 }
@@ -2299,30 +2279,58 @@ select:focus {
   font-size: 1.45rem;
 }
 
-.current-team {
+.assignment-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(16rem, 0.9fr);
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid rgb(59 130 246 / 0.18);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), #ffffff;
 }
 
-.current-team > div {
+.assignment-summary-main {
   display: grid;
-  gap: 0.3rem;
-  border: 1px solid rgb(219 231 245 / 0.86);
-  border-radius: 0.65rem;
-  padding: 0.85rem 0.95rem;
-  background: #fbfdff;
+  min-width: 0;
 }
 
-.current-team span {
+.assignment-summary-label,
+.assignment-summary-main small {
   color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.76rem;
+  font-weight: 800;
 }
 
-.current-team strong {
+.assignment-summary-main strong {
+  overflow: hidden;
   color: var(--color-text);
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: 1.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-summary-meta {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.assignment-summary-meta span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.42rem;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-summary-meta i {
+  color: var(--color-primary);
 }
 
 .resource-section {
@@ -2375,15 +2383,17 @@ select:focus {
 
 .resource-list {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.48rem;
 }
 
 .resource-card {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: minmax(11rem, 0.72fr) minmax(16rem, 1fr);
+  gap: 0.6rem;
+  align-items: center;
   border: 1px solid rgb(219 231 245 / 0.9);
-  border-radius: 0.7rem;
-  padding: 0.85rem;
+  border-radius: 0.58rem;
+  padding: 0.58rem 0.68rem;
   background: #ffffff;
 }
 
@@ -2393,7 +2403,15 @@ select:focus {
 }
 
 .resource-card-main h4 {
-  font-size: 0.98rem;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.resource-card-main p {
+  margin-top: 0.12rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .therapist-name {
@@ -2405,12 +2423,12 @@ select:focus {
 
 .availability-badge {
   display: inline-flex;
-  min-height: 1.55rem;
+  min-height: 1.38rem;
   align-items: center;
   gap: 0.28rem;
   border: 1px solid rgb(22 163 74 / 0.22);
   border-radius: 999px;
-  padding: 0.1rem 0.5rem;
+  padding: 0.08rem 0.42rem;
   color: #15803d;
   background: #ecfdf5;
   font-size: 0.72rem;
@@ -2424,9 +2442,27 @@ select:focus {
 
 .resource-controls {
   display: grid;
-  grid-template-columns: minmax(12rem, 1fr) auto auto;
-  gap: 0.55rem;
+  grid-template-columns: minmax(10rem, 1fr) auto auto;
+  gap: 0.42rem;
   align-items: center;
+}
+
+.resource-controls .assign-button {
+  min-height: 2.05rem;
+  padding: 0 0.7rem;
+  font-size: 0.82rem;
+}
+
+.resource-controls .icon-toggle-button {
+  width: 2rem;
+  height: 2rem;
+}
+
+.resource-card .count-pill {
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  padding: 0.12rem 0.48rem;
+  font-size: 0.76rem;
 }
 
 .resource-list--volunteers .resource-controls {
@@ -2435,9 +2471,10 @@ select:focus {
 
 .resource-detail {
   display: grid;
+  grid-column: 1 / -1;
   gap: 0.28rem;
   border-top: 1px solid rgb(219 231 245 / 0.75);
-  padding-top: 0.72rem;
+  padding-top: 0.55rem;
   color: var(--color-muted);
   font-size: 0.84rem;
   line-height: 1.55;
@@ -2576,7 +2613,8 @@ tbody tr:not(.detail-row):hover,
 
 .slot-select {
   min-width: 12.5rem;
-  height: 2.35rem;
+  height: 2.05rem;
+  font-size: 0.84rem;
 }
 
 .row-actions {
@@ -2717,9 +2755,13 @@ tbody tr:not(.detail-row):hover,
   backdrop-filter: blur(6px);
 }
 
+.kid-modal-overlay {
+  z-index: 60;
+}
+
 .directory-modal {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: min(58rem, 100%);
   max-height: min(44rem, calc(100vh - 2rem));
   overflow: hidden;
@@ -2808,6 +2850,7 @@ tbody tr:not(.detail-row):hover,
 
 .directory-card-title h3 {
   display: inline-flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
@@ -2815,6 +2858,107 @@ tbody tr:not(.detail-row):hover,
   color: var(--color-text);
   font-size: 1rem;
   line-height: 1.35;
+}
+
+.directory-card-title-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.icon-action {
+  display: inline-grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid rgb(219 231 245 / 0.95);
+  border-radius: 0.55rem;
+  background: #ffffff;
+  box-shadow: 0 0.18rem 0.55rem rgb(31 41 55 / 0.08);
+  cursor: pointer;
+}
+
+.icon-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.icon-action--edit {
+  color: #2563eb;
+  border-color: rgb(59 130 246 / 0.3);
+  background: #eff6ff;
+}
+
+.icon-action--danger {
+  color: #dc2626;
+  border-color: rgb(239 68 68 / 0.28);
+  background: #fef2f2;
+}
+
+.icon-action:hover,
+.icon-action:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 0.35rem 0.8rem rgb(31 41 55 / 0.12);
+}
+
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(5px);
+}
+
+.confirm-modal {
+  display: grid;
+  width: min(430px, 100%);
+  gap: 1rem;
+  border: 1px solid rgb(219 231 245 / 0.95);
+  border-radius: 0.9rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 28px 70px rgb(15 23 42 / 0.26);
+}
+
+.confirm-modal-icon {
+  display: inline-grid;
+  width: 3.1rem;
+  height: 3.1rem;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1.25rem;
+}
+
+.confirm-modal-icon--danger {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.confirm-modal h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.18rem;
+}
+
+.confirm-modal p {
+  margin: 0.4rem 0 0;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.confirm-modal strong {
+  color: var(--color-text);
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
 }
 
 .directory-card dl {
@@ -2850,7 +2994,7 @@ tbody tr:not(.detail-row):hover,
     grid-template-columns: 1fr;
   }
 
-  .launcher-grid--directory {
+  .launcher-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2860,10 +3004,6 @@ tbody tr:not(.detail-row):hover,
 
   .summary-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .summary-item:nth-child(4) {
-    border-left: 0;
   }
 }
 
@@ -2901,14 +3041,14 @@ tbody tr:not(.detail-row):hover,
     width: 100%;
   }
 
-  .current-team,
+  .assignment-summary,
   .resource-controls,
   .resource-list--volunteers .resource-controls,
   .directory-card dl {
     grid-template-columns: 1fr;
   }
 
-  .assignment-hero,
+  .assignment-summary,
   .child-card-main,
   .resource-card-main,
   .resource-heading {
@@ -2928,7 +3068,7 @@ tbody tr:not(.detail-row):hover,
     grid-template-columns: 1fr 1fr;
   }
 
-  .launcher-grid--directory {
+  .launcher-grid {
     grid-template-columns: 1fr;
   }
 

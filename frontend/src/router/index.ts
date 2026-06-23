@@ -48,8 +48,7 @@ const router = createRouter({
     {
       path: '/admin',
       name: 'admin-home',
-      component: () => import('../views/role/RoleBlankView.vue'),
-      props: { title: 'Admin' },
+      component: () => import('../views/admin/AdminDashboardView.vue'),
       meta: { requiresAuth: true, roles: ['admin'] },
     },
     {

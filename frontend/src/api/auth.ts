@@ -1,4 +1,4 @@
-import { apiPatch, apiPost } from './client'
+import { apiDelete, apiGet, apiPatch, apiPost } from './client'
 
 export type AddressPayload = {
   house_no?: string | null
@@ -71,6 +71,30 @@ export type AccountUpdatePayload = {
   profile_image_data?: string | null
 }
 
+export type AdminPasswordResetPayload = {
+  thai_id: string
+  temporary_password: string
+}
+
+export type CaseManagerPayload = {
+  thai_id: string
+  password: string
+  full_name: string
+  date_of_birth: string
+  gender: string
+  phone?: string | null
+  email?: string | null
+  address: AddressPayload
+}
+
+export type CaseManagerUpdatePayload = Omit<CaseManagerPayload, 'thai_id' | 'password'>
+
+export type CaseManagerResponse = UserResponse & {
+  address: AddressPayload & {
+    id: number
+  }
+}
+
 export function registerCaregiver(payload: CaregiverRegisterPayload): Promise<UserResponse> {
   return apiPost<UserResponse, CaregiverRegisterPayload>('/api/v1/auth/register/caregiver', payload)
 }
@@ -90,4 +114,36 @@ export function login(payload: LoginPayload): Promise<TokenResponse> {
 
 export function updateAccount(payload: AccountUpdatePayload): Promise<UserResponse> {
   return apiPatch<UserResponse, AccountUpdatePayload>('/api/v1/auth/me', payload)
+}
+
+export function resetUserPassword(payload: AdminPasswordResetPayload): Promise<UserResponse> {
+  return apiPost<UserResponse, AdminPasswordResetPayload>(
+    '/api/v1/auth/admin/password-reset',
+    payload,
+  )
+}
+
+export function createCaseManager(payload: CaseManagerPayload): Promise<CaseManagerResponse> {
+  return apiPost<CaseManagerResponse, CaseManagerPayload>(
+    '/api/v1/auth/admin/case-managers',
+    payload,
+  )
+}
+
+export function listCaseManagers(): Promise<CaseManagerResponse[]> {
+  return apiGet<CaseManagerResponse[]>('/api/v1/auth/admin/case-managers')
+}
+
+export function updateCaseManager(
+  caseManagerId: string,
+  payload: CaseManagerUpdatePayload,
+): Promise<CaseManagerResponse> {
+  return apiPatch<CaseManagerResponse, CaseManagerUpdatePayload>(
+    `/api/v1/auth/admin/case-managers/${caseManagerId}`,
+    payload,
+  )
+}
+
+export function deleteCaseManager(caseManagerId: string): Promise<void> {
+  return apiDelete(`/api/v1/auth/admin/case-managers/${caseManagerId}`)
 }

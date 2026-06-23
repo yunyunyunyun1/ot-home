@@ -18,6 +18,13 @@
   --admin-bg: #f8f9fc;
   --admin-border: #e3e6f0;
   --admin-text: #5a5c69;
+  --app-surface: #ffffff;
+  --app-surface-soft: #fbfdff;
+  --app-input-bg: #ffffff;
+  --app-hover-bg: #f8fbff;
+  --app-danger-soft: #fef2f2;
+  --app-success-soft: #dcfce7;
+  --app-warning-soft: #fef3c7;
   --brand-font:
     Nunito, 'Aptos Display', 'Segoe UI Variable Display', 'Segoe UI', ui-rounded, system-ui,
     sans-serif;
@@ -36,6 +43,31 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --color-background: #101828;
+  --color-background-soft: #172033;
+  --color-primary: #7aa7ff;
+  --color-secondary: #93c5fd;
+  --color-text: #eef4ff;
+  --color-muted: #aab7cf;
+  --color-surface: #172033;
+  --color-border: #33415c;
+  --shadow-soft: 0 18px 44px rgb(0 0 0 / 0.26);
+  --shadow-action: 0 12px 22px rgb(30 64 175 / 0.26);
+  --admin-primary: #7aa7ff;
+  --admin-primary-dark: #4f80e8;
+  --admin-bg: #101828;
+  --admin-border: #33415c;
+  --admin-text: #dbe7fb;
+  --app-surface: #172033;
+  --app-surface-soft: #1d2940;
+  --app-input-bg: #111a2b;
+  --app-hover-bg: #22304a;
+  --app-danger-soft: #3b1d24;
+  --app-success-soft: #143323;
+  --app-warning-soft: #372b13;
 }
 
 * {
@@ -148,6 +180,151 @@ select {
     0 0 0 3px rgb(78 115 223 / 0.18),
     0 0.2rem 0.85rem rgb(58 59 69 / 0.18) !important;
   outline: none !important;
+}
+
+:root[data-theme='dark'] body,
+:root[data-theme='dark'] .ot-admin-layout,
+:root[data-theme='dark'] .home-page,
+:root[data-theme='dark'] .login-page,
+:root[data-theme='dark'] .register-page,
+:root[data-theme='dark'] .register-form-page,
+:root[data-theme='dark'] .role-page,
+:root[data-theme='dark'] .case-manager-page,
+:root[data-theme='dark'] .caregiver-page,
+:root[data-theme='dark'] .development-page,
+:root[data-theme='dark'] .account-page,
+:root[data-theme='dark'] .village-volunteer-page {
+  color: var(--admin-text) !important;
+  background: var(--admin-bg) !important;
+}
+
+:root[data-theme='dark'] .top-nav,
+:root[data-theme='dark'] .summary-strip,
+:root[data-theme='dark'] .summary-card,
+:root[data-theme='dark'] .hero-panel,
+:root[data-theme='dark'] .privacy-panel,
+:root[data-theme='dark'] .workflow-panel,
+:root[data-theme='dark'] .workflow-steps article,
+:root[data-theme='dark'] .register-shell,
+:root[data-theme='dark'] .form-shell,
+:root[data-theme='dark'] .login-shell,
+:root[data-theme='dark'] fieldset,
+:root[data-theme='dark'] .form-panel,
+:root[data-theme='dark'] .account-heading,
+:root[data-theme='dark'] .table-panel,
+:root[data-theme='dark'] .availability-panel,
+:root[data-theme='dark'] .command-section,
+:root[data-theme='dark'] .launcher-button,
+:root[data-theme='dark'] .matching-panel,
+:root[data-theme='dark'] .resource-card,
+:root[data-theme='dark'] .directory-modal,
+:root[data-theme='dark'] .directory-card,
+:root[data-theme='dark'] .confirm-modal,
+:root[data-theme='dark'] .logout-modal,
+:root[data-theme='dark'] .modal-card,
+:root[data-theme='dark'] .program-card,
+:root[data-theme='dark'] .kid-card,
+:root[data-theme='dark'] .home-program-card {
+  border-color: var(--admin-border) !important;
+  color: var(--admin-text) !important;
+  background: var(--app-surface) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background-color: var(--app-input-bg) !important;
+}
+
+:root[data-theme='dark'] input::placeholder,
+:root[data-theme='dark'] textarea::placeholder {
+  color: #8795ad !important;
+}
+
+:root[data-theme='dark'] h1,
+:root[data-theme='dark'] h2,
+:root[data-theme='dark'] h3,
+:root[data-theme='dark'] h4,
+:root[data-theme='dark'] legend,
+:root[data-theme='dark'] label span,
+:root[data-theme='dark'] strong,
+:root[data-theme='dark'] th,
+:root[data-theme='dark'] td {
+  color: var(--color-text) !important;
+}
+
+:root[data-theme='dark'] p,
+:root[data-theme='dark'] small,
+:root[data-theme='dark'] dd,
+:root[data-theme='dark'] dt,
+:root[data-theme='dark'] .intro,
+:root[data-theme='dark'] .eyebrow,
+:root[data-theme='dark'] .summary-item span,
+:root[data-theme='dark'] .resource-card-main p,
+:root[data-theme='dark'] .assignment-summary-meta span,
+:root[data-theme='dark'] .empty-state,
+:root[data-theme='dark'] .form-hint {
+  color: var(--color-muted) !important;
+}
+
+:root[data-theme='dark'] .brand-name,
+:root[data-theme='dark'] #home-title {
+  color: var(--color-primary) !important;
+}
+
+:root[data-theme='dark'] .logo-slot,
+:root[data-theme='dark'] .user-avatar-link,
+:root[data-theme='dark'] .secondary-action,
+:root[data-theme='dark'] .refresh-button,
+:root[data-theme='dark'] .modal-close-button,
+:root[data-theme='dark'] .section-toggle-button,
+:root[data-theme='dark'] .icon-action,
+:root[data-theme='dark'] .icon-toggle-button,
+:root[data-theme='dark'] .back-button {
+  border-color: var(--admin-border) !important;
+  color: var(--admin-text) !important;
+  background-color: var(--app-input-bg) !important;
+}
+
+:root[data-theme='dark'] .launcher-button:hover,
+:root[data-theme='dark'] .launcher-button:focus-visible,
+:root[data-theme='dark'] .secondary-action:hover,
+:root[data-theme='dark'] .refresh-button:hover,
+:root[data-theme='dark'] .modal-close-button:hover,
+:root[data-theme='dark'] .profile-menu-item:hover,
+:root[data-theme='dark'] .profile-menu-item:focus-visible {
+  background: var(--app-hover-bg) !important;
+}
+
+:root[data-theme='dark'] table,
+:root[data-theme='dark'] tr,
+:root[data-theme='dark'] th {
+  border-color: var(--admin-border) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] .form-alert--error,
+:root[data-theme='dark'] .match-status--warning,
+:root[data-theme='dark'] .status-pill--warning {
+  color: #fde68a !important;
+  background: var(--app-warning-soft) !important;
+}
+
+:root[data-theme='dark'] .match-status--complete,
+:root[data-theme='dark'] .status-pill--success,
+:root[data-theme='dark'] .form-alert--success {
+  color: #86efac !important;
+  background: var(--app-success-soft) !important;
+}
+
+:root[data-theme='dark'] .match-status--empty,
+:root[data-theme='dark'] .status-pill--neutral,
+:root[data-theme='dark'] .count-pill {
+  color: #c7d2fe !important;
+  background: #24314d !important;
 }
 
 /* Shared icon language: home=house, profile=person, child=person-hearts,
@@ -399,6 +576,94 @@ textarea:focus {
 .count-pill {
   color: var(--admin-primary) !important;
   background: rgb(78 115 223 / 0.12) !important;
+}
+
+:root[data-theme='dark'] .secondary-action,
+:root[data-theme='dark'] .refresh-button,
+:root[data-theme='dark'] .search-field,
+:root[data-theme='dark'] .care-card,
+:root[data-theme='dark'] .role-card,
+:root[data-theme='dark'] .availability-panel,
+:root[data-theme='dark'] .table-panel,
+:root[data-theme='dark'] .create-panel,
+:root[data-theme='dark'] .surface-panel,
+:root[data-theme='dark'] .login-form fieldset,
+:root[data-theme='dark'] .register-form fieldset,
+:root[data-theme='dark'] .summary-strip,
+:root[data-theme='dark'] .user-chip {
+  border-color: var(--admin-border) !important;
+  color: var(--admin-text) !important;
+  background: var(--app-surface) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+:root[data-theme='dark'] .list-header,
+:root[data-theme='dark'] .panel-heading,
+:root[data-theme='dark'] .welcome-header,
+:root[data-theme='dark'] th,
+:root[data-theme='dark'] .detail-row td {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] table,
+:root[data-theme='dark'] td {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-surface) !important;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-input-bg) !important;
+}
+
+:root[data-theme='dark'] .search-field input {
+  color: var(--color-text) !important;
+  background: transparent !important;
+}
+
+:root[data-theme='dark'] .page-heading h1,
+:root[data-theme='dark'] .hero h1,
+:root[data-theme='dark'] .blank-shell h1,
+:root[data-theme='dark'] .development-shell h1,
+:root[data-theme='dark'] .summary-item strong,
+:root[data-theme='dark'] .care-card strong,
+:root[data-theme='dark'] .kid-name {
+  color: var(--color-text) !important;
+}
+
+:root[data-theme='dark'] .summary-item span,
+:root[data-theme='dark'] .list-header p,
+:root[data-theme='dark'] .panel-heading p,
+:root[data-theme='dark'] .page-subtitle,
+:root[data-theme='dark'] .intro,
+:root[data-theme='dark'] .card-label,
+:root[data-theme='dark'] .care-card small {
+  color: var(--color-muted) !important;
+}
+
+:root[data-theme='dark'] .form-alert--error {
+  border-color: rgb(248 113 113 / 0.28) !important;
+  color: #fca5a5 !important;
+  background: var(--app-danger-soft) !important;
+}
+
+:root[data-theme='dark'] .form-alert--success,
+:root[data-theme='dark'] .status-pill--success {
+  border-color: rgb(74 222 128 / 0.26) !important;
+  color: #86efac !important;
+  background: var(--app-success-soft) !important;
+}
+
+:root[data-theme='dark'] .status-pill--neutral,
+:root[data-theme='dark'] .count-pill {
+  color: #c7d2fe !important;
+  background: #24314d !important;
 }
 
 a {
@@ -1020,6 +1285,11 @@ a {
   min-width: 40rem !important;
 }
 
+.caregiver-page .table-panel table {
+  min-width: 0 !important;
+  table-layout: fixed !important;
+}
+
 @media (min-width: 1280px) {
   .match-grid,
   .dashboard-grid,
@@ -1034,7 +1304,7 @@ a {
 
 .welcome-popup {
   border: 0 !important;
-  background: url('/welcome/ot-home-popup.jpg') center / cover no-repeat !important;
+  background: #f8f4ed url('/welcome/ot-home-popup.jpg') center / contain no-repeat !important;
 }
 
 .welcome-button {
@@ -1060,4 +1330,113 @@ a {
   background: transparent !important;
   border-color: transparent !important;
   transform: translateX(-50%) !important;
+}
+
+/* Final dark-mode guardrail for the kid development page.
+   This lives after the global layout guardrails so those older !important rules cannot wash out the page. */
+:root[data-theme='dark'] .development-page .kid-profile-collapsible,
+:root[data-theme='dark'] .development-page .surface-panel,
+:root[data-theme='dark'] .development-page .session-preview {
+  border-color: var(--admin-border) !important;
+  background: var(--app-surface) !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-profile-collapsible > summary,
+:root[data-theme='dark'] .development-page .panel-heading {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-profile-collapsible > summary span,
+:root[data-theme='dark'] .development-page .session-preview strong {
+  color: var(--color-text) !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-profile-collapsible > summary i,
+:root[data-theme='dark'] .development-page .session-preview span,
+:root[data-theme='dark'] .development-page .panel-heading p {
+  color: var(--color-muted) !important;
+}
+
+:root[data-theme='dark'] .development-page .session-preview {
+  background: #111c2d !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-surface) !important;
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.42) !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal-header {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal h2,
+:root[data-theme='dark'] .development-page .evaluation-modal .profile-list dd,
+:root[data-theme='dark'] .development-page .evaluation-modal .home-program-card h3,
+:root[data-theme='dark'] .development-page .evaluation-modal .template-card h4,
+:root[data-theme='dark'] .development-page .evaluation-modal label,
+:root[data-theme='dark'] .development-page .evaluation-modal legend {
+  color: var(--color-text) !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal .eyebrow {
+  color: #93c5fd !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal-header p:not(.eyebrow),
+:root[data-theme='dark'] .development-page .evaluation-modal .profile-list dt,
+:root[data-theme='dark'] .development-page .evaluation-modal .home-program-card p,
+:root[data-theme='dark'] .development-page .evaluation-modal .home-program-card small,
+:root[data-theme='dark'] .development-page .evaluation-modal .template-card p,
+:root[data-theme='dark'] .development-page .evaluation-modal .template-card small,
+:root[data-theme='dark'] .development-page .evaluation-modal .empty-state {
+  color: var(--color-muted) !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal input,
+:root[data-theme='dark'] .development-page .evaluation-modal select,
+:root[data-theme='dark'] .development-page .evaluation-modal textarea,
+:root[data-theme='dark'] .development-page .evaluation-modal .modal-close-button {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-input-bg) !important;
+}
+
+:root[data-theme='dark'] .development-page .evaluation-modal .home-program-card,
+:root[data-theme='dark'] .development-page .evaluation-modal .template-card,
+:root[data-theme='dark'] .development-page .evaluation-modal .aspect-select-field,
+:root[data-theme='dark'] .development-page .evaluation-modal .template-picker,
+:root[data-theme='dark'] .development-page .evaluation-modal .aspect-field {
+  border-color: var(--admin-border) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-info-button--standalone {
+  border-color: rgb(122 167 255 / 0.32) !important;
+  color: #e5eefc !important;
+  background:
+    radial-gradient(circle at top left, rgb(122 167 255 / 0.16), transparent 10rem),
+    linear-gradient(180deg, #172237 0%, #111c2d 100%) !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-info-button--standalone span {
+  color: #e5eefc !important;
+}
+
+:root[data-theme='dark'] .development-page .kid-info-button--standalone img {
+  background: rgb(255 255 255 / 0.94) !important;
+  box-shadow: 0 0.45rem 1rem rgb(0 0 0 / 0.28) !important;
+}
+
+:root[data-theme='dark'] .development-page .primary-action:disabled {
+  border-color: rgb(122 167 255 / 0.28) !important;
+  color: #dbeafe !important;
+  background: rgb(78 115 223 / 0.32) !important;
+  opacity: 0.82 !important;
 }

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import ProfileMenu from '../components/ProfileMenu.vue'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
@@ -53,14 +54,7 @@ function hideMissingLogo(index: number) {
 
       <div class="nav-actions">
         <template v-if="isLoggedIn">
-          <RouterLink class="user-avatar-link" to="/account" :aria-label="userRoleLabel">
-            <img
-              v-if="authStore.user?.profile_image_data"
-              :src="authStore.user.profile_image_data"
-              alt=""
-            />
-            <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
-          </RouterLink>
+          <ProfileMenu />
           <RouterLink class="nav-button" :to="roleHomePath">ไปยังหน้าทำงาน</RouterLink>
         </template>
         <template v-else>
@@ -478,13 +472,13 @@ h2 {
 
 .welcome-popup {
   position: relative;
-  width: min(96vw, 1180px, calc((100vh - 3rem) * 1.777));
-  aspect-ratio: 16 / 9;
+  width: min(96vw, 1180px, calc((100vh - 3rem) * 1.738));
+  aspect-ratio: 2048 / 1178;
   border: 0;
   border-radius: clamp(0.8rem, 2vw, 1.6rem);
   padding: 0;
   overflow: hidden;
-  background: image-set(url('/welcome/ot-home-popup.jpg') 1x) center / cover no-repeat;
+  background: #f8f4ed image-set(url('/welcome/ot-home-popup.jpg') 1x) center / contain no-repeat;
   box-shadow: 0 1.5rem 4rem rgb(31 41 55 / 0.32);
 }
 

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import ProfileMenu from '../../components/ProfileMenu.vue'
 import { ApiError } from '../../api/client'
 import {
   listMyVillageVolunteerAssignedKids,
@@ -116,14 +117,7 @@ onMounted(loadKids)
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
-        <img
-          v-if="authStore.user?.profile_image_data"
-          :src="authStore.user.profile_image_data"
-          alt=""
-        />
-        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
-      </RouterLink>
+      <ProfileMenu />
     </nav>
 
     <section class="dashboard-shell" aria-labelledby="volunteer-title">

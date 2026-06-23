@@ -17,6 +17,27 @@ def user_to_read(user: models.User) -> schemas.UserRead:
     )
 
 
+def case_manager_to_read(case_manager: models.User) -> schemas.CaseManagerRead:
+    profile = case_manager.case_manager_profile
+    if profile is None:
+        raise ValueError("Case manager profile is required")
+
+    return schemas.CaseManagerRead(
+        id=case_manager.id,
+        thai_id_masked=crud.mask_thai_id(case_manager.thai_id),
+        role=case_manager.role,
+        full_name=case_manager.full_name,
+        date_of_birth=case_manager.date_of_birth,
+        gender=case_manager.gender,
+        phone=case_manager.phone,
+        email=case_manager.email,
+        profile_image_data=case_manager.profile_image_data,
+        is_active=case_manager.is_active,
+        created_at=case_manager.created_at,
+        address=schemas.AddressRead.model_validate(profile.address),
+    )
+
+
 def kid_to_read(kid: models.Kid) -> schemas.KidRead:
     assigned_caregiver = None
     if kid.caregiver_assignment is not None:

@@ -13,6 +13,7 @@ const authStore = useAuthStore()
 const form = reactive({
   thai_id: '',
   password: '',
+  remember_session: true,
 })
 
 const isSubmitting = ref(false)
@@ -39,7 +40,7 @@ async function submitForm() {
       thai_id: form.thai_id.trim(),
       password: form.password,
     })
-    authStore.setSession(session.access_token, session.user)
+    authStore.setSession(session.access_token, session.user, form.remember_session)
     await router.push(roleRedirects[session.user.role] ?? '/')
   } catch (error) {
     errorMessage.value =
@@ -99,6 +100,11 @@ async function submitForm() {
               autocomplete="current-password"
               placeholder="กรอกรหัสผ่าน"
             />
+          </label>
+
+          <label class="remember-option">
+            <input v-model="form.remember_session" type="checkbox" />
+            <span>จดจำการเข้าสู่ระบบ</span>
           </label>
         </fieldset>
 
@@ -282,6 +288,26 @@ label span {
   color: var(--color-text);
   font-size: 0.95rem;
   font-weight: 700;
+}
+
+.remember-option {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-muted);
+  font-weight: 750;
+}
+
+.remember-option input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--color-primary);
+}
+
+.remember-option span {
+  color: var(--color-muted);
+  font-size: 0.9rem;
 }
 
 .required-marker {

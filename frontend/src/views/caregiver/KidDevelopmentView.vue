@@ -2,7 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import ProfileMenu from '../../components/ProfileMenu.vue'
 import { ApiError } from '../../api/client'
+import kidProfileIcon from '../../assets/logos/kid-profile-icon.png'
 import {
   createHomeProgramActivity,
   createDenverEvaluation,
@@ -12,6 +14,7 @@ import {
   listDenverEvaluations,
   listMyAssignedKids,
   listTherapySessions,
+  updateDenverEvaluation,
   updateHomeProgramActivity,
   type DenverAspectResult,
   type DenverEvaluationResponse,
@@ -35,10 +38,12 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isSubmittingHomeProgram = ref(false)
 const isEvaluationModalOpen = ref(false)
+const isKidInfoModalOpen = ref(false)
 const isHomeProgramModalOpen = ref(false)
 const isHomeProgramDetailModalOpen = ref(false)
 const selectedHomeProgramEvaluation = ref<DenverEvaluationResponse | null>(null)
 const selectedHomeProgramDetailEvaluation = ref<DenverEvaluationResponse | null>(null)
+const editingDenverEvaluation = ref<DenverEvaluationResponse | null>(null)
 const selectedTemplateAgeRange = ref('')
 const editingHomeProgramActivityId = ref('')
 const deletingHomeProgramActivityId = ref('')
@@ -82,7 +87,7 @@ const homeProgramAspectOptions = [
 const kidId = computed(() => String(route.params.kidId ?? ''))
 
 const kid = computed(() => {
-  return kids.value.find((item) => item.id === kidId.value)
+  return kids.value.find((item) => item.id === kidId.value) as KidResponse
 })
 
 const latestEvaluation = computed(() => {
@@ -216,6 +221,40 @@ function homeProgramCountForEvaluation(evaluation: DenverEvaluationResponse) {
     .length
 }
 
+function kidDisplayName(kidItem: KidResponse | null | undefined) {
+  if (!kidItem) {
+    return ''
+  }
+
+  if (kidItem.gender === 'male') {
+    return `ด.ช. ${kidItem.full_name}`
+  }
+
+  if (kidItem.gender === 'female') {
+    return `ด.ญ. ${kidItem.full_name}`
+  }
+
+  return kidItem.full_name
+}
+
+function kidAddress(kidItem: KidResponse | null | undefined) {
+  if (!kidItem) {
+    return ''
+  }
+
+  return [
+    kidItem.address.house_no,
+    kidItem.address.village_no ? `หมู่ ${kidItem.address.village_no}` : '',
+    kidItem.address.road ? `ถนน${kidItem.address.road}` : '',
+    kidItem.address.subdistrict,
+    kidItem.address.district,
+    kidItem.address.province,
+    kidItem.address.postal_code,
+  ]
+    .filter(Boolean)
+    .join(', ')
+}
+
 function resetHomeProgramForm() {
   editingHomeProgramActivityId.value = ''
   homeProgramForm.aspect = 'personal_social'
@@ -277,6 +316,11 @@ function openEvaluationModal() {
     return
   }
 
+  editingDenverEvaluation.value = null
+  form.aspect_1_result = 'pass'
+  form.aspect_2_result = 'pass'
+  form.aspect_3_result = 'pass'
+  form.aspect_4_result = 'pass'
   errorMessage.value = ''
   successMessage.value = ''
   isEvaluationModalOpen.value = true
@@ -285,7 +329,27 @@ function openEvaluationModal() {
 function closeEvaluationModal() {
   if (!isSubmitting.value) {
     isEvaluationModalOpen.value = false
+    editingDenverEvaluation.value = null
   }
+}
+
+function openEditEvaluationModal(evaluation: DenverEvaluationResponse) {
+  editingDenverEvaluation.value = evaluation
+  form.aspect_1_result = evaluation.aspect_1_result
+  form.aspect_2_result = evaluation.aspect_2_result
+  form.aspect_3_result = evaluation.aspect_3_result
+  form.aspect_4_result = evaluation.aspect_4_result
+  errorMessage.value = ''
+  successMessage.value = ''
+  isEvaluationModalOpen.value = true
+}
+
+function openKidInfoModal() {
+  isKidInfoModalOpen.value = true
+}
+
+function closeKidInfoModal() {
+  isKidInfoModalOpen.value = false
 }
 
 async function loadPage() {
@@ -390,6 +454,26 @@ async function submitEvaluation() {
   isSubmitting.value = true
 
   try {
+    if (editingDenverEvaluation.value) {
+      const updatedEvaluation = await updateDenverEvaluation(
+        kidId.value,
+        editingDenverEvaluation.value.id,
+        {
+          aspect_1_result: form.aspect_1_result,
+          aspect_2_result: form.aspect_2_result,
+          aspect_3_result: form.aspect_3_result,
+          aspect_4_result: form.aspect_4_result,
+        },
+      )
+      evaluations.value = evaluations.value.map((evaluation) =>
+        evaluation.id === updatedEvaluation.id ? updatedEvaluation : evaluation,
+      )
+      successMessage.value = 'แก้ไขผลประเมิน Denver II แล้ว'
+      isEvaluationModalOpen.value = false
+      editingDenverEvaluation.value = null
+      return
+    }
+
     const evaluation = await createDenverEvaluation(kidId.value, {
       evaluation_name: String(nextSessionNumber.value),
       aspect_1_result: form.aspect_1_result,
@@ -433,21 +517,14 @@ onMounted(loadPage)
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
-        <img
-          v-if="authStore.user?.profile_image_data"
-          :src="authStore.user.profile_image_data"
-          alt=""
-        />
-        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
-      </RouterLink>
+      <ProfileMenu />
     </nav>
 
     <section class="development-shell" aria-labelledby="development-title">
       <div class="page-heading">
         <div>
           <h1 id="development-title">
-            {{ kid?.full_name ?? 'ติดตามพัฒนาการเด็ก' }}
+            {{ kid ? kidDisplayName(kid) : 'ติดตามพัฒนาการเด็ก' }}
           </h1>
         </div>
 
@@ -482,7 +559,7 @@ onMounted(loadPage)
           </div>
         </div>
 
-        <details class="surface-panel kid-profile-collapsible">
+        <details v-if="kid && false" class="surface-panel kid-profile-collapsible">
           <summary>
             <span>ข้อมูลเด็ก</span>
             <i class="bi bi-chevron-down" aria-hidden="true"></i>
@@ -490,16 +567,16 @@ onMounted(loadPage)
           <dl class="profile-list">
             <div>
               <dt>ชื่อ-นามสกุล</dt>
-              <dd>{{ kid.full_name }}</dd>
+              <dd>{{ kid ? kidDisplayName(kid) : '' }}</dd>
             </div>
             <div>
               <dt>เลขประจำตัวประชาชน</dt>
-              <dd>{{ kid.thai_id_masked }}</dd>
+              <dd>{{ kid?.thai_id_masked }}</dd>
             </div>
             <div>
               <dt>ที่อยู่</dt>
               <dd>
-                {{ kid.address.house_no ? `${kid.address.house_no} ` : '' }}
+                {{ kid?.address.house_no ? `${kid.address.house_no} ` : '' }}
                 {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : '' }}
                 {{ kid.address.road ? `ถนน${kid.address.road} ` : '' }}
                 {{ kid.address.subdistrict }}, {{ kid.address.district }},
@@ -516,6 +593,16 @@ onMounted(loadPage)
                 <h2 id="score-title">บันทึกผลประเมิน Denver II</h2>
                 <p>กดปุ่มเพื่อเปิดแบบประเมิน 4 ด้าน สำหรับนัดที่รอประเมิน</p>
               </div>
+              <button
+                type="button"
+                class="kid-info-button"
+                aria-label="ดูข้อมูลเด็ก"
+                title="ข้อมูลเด็ก"
+                @click="openKidInfoModal"
+              >
+                <i class="bi bi-person-hearts" aria-hidden="true"></i>
+                <span>ข้อมูลเด็ก</span>
+              </button>
             </div>
 
             <div class="evaluation-action-panel">
@@ -540,12 +627,25 @@ onMounted(loadPage)
             </div>
           </section>
 
+          <aside class="kid-info-action-panel" aria-label="ข้อมูลเด็ก">
+            <button
+              type="button"
+              class="kid-info-button kid-info-button--standalone"
+              aria-label="ดูข้อมูลเด็ก"
+              title="ข้อมูลเด็ก"
+              @click="openKidInfoModal"
+            >
+              <img :src="kidProfileIcon" alt="" aria-hidden="true" />
+              <span>ข้อมูลเด็ก</span>
+            </button>
+          </aside>
+
           <aside class="surface-panel kid-profile-side-panel" aria-labelledby="kid-profile-title">
             <h2 id="kid-profile-title">ข้อมูลเด็ก</h2>
             <dl class="profile-list">
               <div>
                 <dt>ชื่อ-นามสกุล</dt>
-                <dd>{{ kid.full_name }}</dd>
+                <dd>{{ kidDisplayName(kid) }}</dd>
               </div>
               <div>
                 <dt>เลขประจำตัวประชาชน</dt>
@@ -614,6 +714,15 @@ onMounted(loadPage)
                   </td>
                   <td>
                     <div class="table-action-group">
+                      <button
+                        type="button"
+                        class="table-action-button table-action-button--icon"
+                        aria-label="แก้ไขผลประเมิน"
+                        title="แก้ไขผลประเมิน"
+                        @click="openEditEvaluationModal(evaluation)"
+                      >
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                      </button>
                       <button
                         type="button"
                         class="table-action-button"
@@ -731,6 +840,58 @@ onMounted(loadPage)
     </section>
 
     <div
+      v-if="isKidInfoModalOpen && kid"
+      class="evaluation-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kid-info-modal-title"
+      @click.self="closeKidInfoModal"
+    >
+      <section class="evaluation-modal kid-info-modal">
+        <header class="evaluation-modal-header">
+          <div>
+            <p class="eyebrow">Child Profile</p>
+            <h2 id="kid-info-modal-title">ข้อมูลเด็ก</h2>
+            <p>{{ kidDisplayName(kid) }}</p>
+          </div>
+          <button
+            class="modal-close-button"
+            type="button"
+            aria-label="ปิดหน้าต่างข้อมูลเด็ก"
+            @click="closeKidInfoModal"
+          >
+            ×
+          </button>
+        </header>
+
+        <dl class="profile-list profile-list--modal">
+          <div>
+            <dt>ชื่อ-นามสกุล</dt>
+            <dd>{{ kidDisplayName(kid) }}</dd>
+          </div>
+          <div>
+            <dt>เลขประจำตัวประชาชน</dt>
+            <dd>{{ kid.thai_id_masked }}</dd>
+          </div>
+          <div>
+            <dt>วันเดือนปีเกิด</dt>
+            <dd>{{ kid.date_of_birth ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>ที่อยู่</dt>
+            <dd>
+              {{ kid.address.house_no ? `${kid.address.house_no} ` : '' }}
+              {{ kid.address.village_no ? `หมู่ ${kid.address.village_no} ` : '' }}
+              {{ kid.address.road ? `ถนน${kid.address.road} ` : '' }}
+              {{ kid.address.subdistrict }}, {{ kid.address.district }}, {{ kid.address.province }}
+              {{ kid.address.postal_code }}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <div
       v-if="isEvaluationModalOpen"
       class="evaluation-modal-overlay"
       role="dialog"
@@ -778,7 +939,7 @@ onMounted(loadPage)
             <button
               class="primary-action"
               type="submit"
-              :disabled="isSubmitting || !nextTherapySession"
+              :disabled="isSubmitting || (!editingDenverEvaluation && !nextTherapySession)"
             >
               {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึกผลประเมิน' }}
             </button>
@@ -1209,6 +1370,75 @@ h2 {
   line-height: 1.5;
 }
 
+.panel-heading > .kid-info-button {
+  display: none;
+}
+
+.kid-info-action-panel {
+  display: grid;
+  min-height: 100%;
+  align-items: stretch;
+  border-radius: 0.5rem;
+}
+
+.kid-info-button {
+  display: inline-flex;
+  min-height: 2.65rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(78 115 223 / 0.22);
+  border-radius: 999px;
+  padding: 0 0.9rem;
+  color: var(--admin-primary);
+  background: rgb(78 115 223 / 0.08);
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 0.125rem 0.35rem rgb(58 59 69 / 0.08);
+}
+
+.kid-info-button--standalone {
+  min-height: 100%;
+  width: 100%;
+  flex-direction: column;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  border-color: rgb(78 115 223 / 0.2);
+  color: var(--admin-text);
+  font-size: 1rem;
+  background:
+    radial-gradient(circle at top left, rgb(78 115 223 / 0.1), transparent 10rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.kid-info-button--standalone img {
+  width: 5.25rem;
+  height: 5.25rem;
+  object-fit: contain;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0.4rem 1rem rgb(78 115 223 / 0.16);
+}
+
+.kid-info-button--standalone span {
+  color: inherit;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.kid-info-button i {
+  font-size: 1.1rem;
+}
+
+.kid-info-button:hover,
+.kid-info-button:focus-visible {
+  border-color: rgb(78 115 223 / 0.42);
+  background: rgb(78 115 223 / 0.14);
+  outline: none;
+}
+
 .evaluation-action-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1515,6 +1745,14 @@ h2 {
   padding: 1rem;
 }
 
+.profile-list--modal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-list--modal div:last-child {
+  grid-column: 1 / -1;
+}
+
 .profile-list div {
   display: grid;
   gap: 0.25rem;
@@ -1728,6 +1966,11 @@ td {
   width: 7.5rem;
 }
 
+.table-action-button--icon {
+  width: 2.1rem;
+  padding: 0;
+}
+
 .table-action-button:hover,
 .table-action-button:focus-visible {
   border-color: rgb(78 115 223 / 0.5);
@@ -1760,6 +2003,127 @@ td {
   line-height: 1;
 }
 
+:global(:root[data-theme='dark']) .development-page .summary-strip,
+:global(:root[data-theme='dark']) .development-page .surface-panel,
+:global(:root[data-theme='dark']) .development-page .evaluation-modal,
+:global(:root[data-theme='dark']) .development-page .template-card,
+:global(:root[data-theme='dark']) .development-page .home-program-card,
+:global(:root[data-theme='dark']) .development-page .aspect-select-field,
+:global(:root[data-theme='dark']) .development-page .template-picker {
+  border-color: var(--admin-border) !important;
+  background: var(--app-surface) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .summary-item,
+:global(:root[data-theme='dark']) .development-page th,
+:global(:root[data-theme='dark']) .development-page td,
+:global(:root[data-theme='dark']) .development-page .panel-heading,
+:global(:root[data-theme='dark']) .development-page .kid-profile-collapsible summary,
+:global(:root[data-theme='dark']) .development-page .evaluation-modal-header,
+:global(:root[data-theme='dark']) .development-page .home-program-form,
+:global(:root[data-theme='dark']) .development-page .aspect-field {
+  border-color: var(--admin-border) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page th,
+:global(:root[data-theme='dark']) .development-page .panel-heading,
+:global(:root[data-theme='dark']) .development-page .kid-profile-collapsible summary,
+:global(:root[data-theme='dark']) .development-page .evaluation-modal-header {
+  background: var(--app-surface-soft) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .session-preview {
+  border-color: rgb(122 167 255 / 0.32) !important;
+  background: var(--app-surface-soft) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .session-preview span,
+:global(:root[data-theme='dark']) .development-page .summary-item span,
+:global(:root[data-theme='dark']) .development-page .panel-heading p,
+:global(:root[data-theme='dark']) .development-page .profile-list dt,
+:global(:root[data-theme='dark']) .development-page .loading-panel,
+:global(:root[data-theme='dark']) .development-page .empty-state,
+:global(:root[data-theme='dark']) .development-page .template-card small,
+:global(:root[data-theme='dark']) .development-page .template-card p,
+:global(:root[data-theme='dark']) .development-page .home-program-card p,
+:global(:root[data-theme='dark']) .development-page .home-program-card small,
+:global(:root[data-theme='dark']) .development-page .evaluation-modal-header p:not(.eyebrow),
+:global(:root[data-theme='dark']) .development-page .kid-profile-collapsible summary i {
+  color: var(--color-muted) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page h1,
+:global(:root[data-theme='dark']) .development-page h2,
+:global(:root[data-theme='dark']) .development-page td,
+:global(:root[data-theme='dark']) .development-page .summary-item strong,
+:global(:root[data-theme='dark']) .development-page .session-preview strong,
+:global(:root[data-theme='dark']) .development-page .profile-list dd,
+:global(:root[data-theme='dark']) .development-page .profile-list dt + dd,
+:global(:root[data-theme='dark']) .development-page .template-card h4,
+:global(:root[data-theme='dark']) .development-page .template-picker-header h3,
+:global(:root[data-theme='dark']) .development-page .home-program-card h3,
+:global(:root[data-theme='dark']) .development-page .aspect-field legend,
+:global(:root[data-theme='dark']) .development-page .evaluation-form label,
+:global(:root[data-theme='dark']) .development-page .home-program-form label,
+:global(:root[data-theme='dark']) .development-page .aspect-field label {
+  color: var(--color-text) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .evaluation-form input[type='text'],
+:global(:root[data-theme='dark']) .development-page .evaluation-form input:not([type]),
+:global(:root[data-theme='dark']) .development-page .home-program-form input,
+:global(:root[data-theme='dark']) .development-page .home-program-form select,
+:global(:root[data-theme='dark']) .development-page .home-program-form textarea,
+:global(:root[data-theme='dark']) .development-page .modal-close-button,
+:global(:root[data-theme='dark']) .development-page .icon-back-button {
+  border-color: var(--admin-border) !important;
+  color: var(--color-text) !important;
+  background: var(--app-input-bg) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .program-aspect {
+  color: #bfdbfe !important;
+  background: rgb(59 130 246 / 0.18) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .table-action-button {
+  border-color: rgb(122 167 255 / 0.28) !important;
+  color: #bfdbfe !important;
+  background: rgb(122 167 255 / 0.12) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .table-action-button--detail {
+  border-color: rgb(52 211 153 / 0.3) !important;
+  color: #a7f3d0 !important;
+  background: rgb(52 211 153 / 0.12) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .primary-action:disabled {
+  border-color: rgb(122 167 255 / 0.24) !important;
+  color: #c7d2fe !important;
+  background: rgb(78 115 223 / 0.28) !important;
+  opacity: 0.76 !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .kid-info-button {
+  border-color: rgb(122 167 255 / 0.28) !important;
+  color: #bfdbfe !important;
+  background: rgb(122 167 255 / 0.12) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .kid-info-button--standalone {
+  border-color: rgb(122 167 255 / 0.26) !important;
+  color: var(--color-text) !important;
+  background:
+    radial-gradient(circle at top left, rgb(122 167 255 / 0.14), transparent 10rem),
+    linear-gradient(180deg, #172237 0%, #111c2d 100%) !important;
+}
+
+:global(:root[data-theme='dark']) .development-page .kid-info-button--standalone img {
+  background: rgb(255 255 255 / 0.92) !important;
+  box-shadow: 0 0.45rem 1rem rgb(0 0 0 / 0.26) !important;
+}
+
 @media (max-width: 880px) {
   .page-heading,
   .content-grid,
@@ -1772,6 +2136,18 @@ td {
   .page-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .panel-heading {
+    flex-direction: column;
+  }
+
+  .kid-info-button--standalone {
+    width: 100%;
+  }
+
+  .profile-list--modal {
+    grid-template-columns: 1fr;
   }
 }
 

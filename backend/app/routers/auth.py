@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +14,7 @@ from app.security import (
     require_admin,
     verify_password,
 )
-from app.serializers import user_to_read
+from app.serializers import case_manager_to_read, user_to_read
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -85,7 +87,7 @@ def register_village_volunteer(
 
 @router.post(
     "/admin/case-managers",
-    response_model=schemas.UserRead,
+    response_model=schemas.CaseManagerRead,
     status_code=status.HTTP_201_CREATED,
 )
 def create_case_manager(
@@ -100,6 +102,73 @@ def create_case_manager(
     except IntegrityError:
         db.rollback()
         _raise_duplicate_user()
+    return case_manager_to_read(user)
+
+
+@router.get("/admin/case-managers", response_model=list[schemas.CaseManagerRead])
+def list_case_managers(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    admin: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    case_managers = crud.list_case_managers(db, skip=skip, limit=limit)
+    return [case_manager_to_read(case_manager) for case_manager in case_managers]
+
+
+@router.patch("/admin/case-managers/{case_manager_id}", response_model=schemas.CaseManagerRead)
+def update_case_manager(
+    case_manager_id: UUID,
+    user_in: schemas.CaseManagerUpdate,
+    admin: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    case_manager = crud.get_case_manager_by_id(db, case_manager_id)
+    if case_manager is None or not case_manager.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Case manager not found",
+        )
+    return case_manager_to_read(crud.update_case_manager(db, case_manager, user_in))
+
+
+@router.delete("/admin/case-managers/{case_manager_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_case_manager(
+    case_manager_id: UUID,
+    admin: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    case_manager = crud.get_case_manager_by_id(db, case_manager_id)
+    if case_manager is None or not case_manager.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Case manager not found",
+        )
+    crud.deactivate_case_manager(db, case_manager)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/admin/password-reset", response_model=schemas.UserRead)
+def reset_user_password(
+    reset_in: schemas.AdminPasswordReset,
+    admin: models.User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = crud.get_user_by_thai_id(db, reset_in.thai_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if user.id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use account settings to change your own password",
+        )
+
+    user.password_hash = get_password_hash(reset_in.temporary_password)
+    db.commit()
+    db.refresh(user)
     return user_to_read(user)
 
 

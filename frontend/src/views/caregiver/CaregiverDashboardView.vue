@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import ProfileMenu from '../../components/ProfileMenu.vue'
 import { ApiError } from '../../api/client'
 import {
   createAvailabilitySlot,
@@ -24,6 +25,7 @@ const isLoadingAvailability = ref(false)
 const isSubmittingAvailability = ref(false)
 const editingSlotId = ref('')
 const deletingSlotId = ref('')
+const slotPendingDelete = ref<CaregiverAvailabilitySlotResponse | null>(null)
 const errorMessage = ref('')
 const availabilityMessage = ref('')
 const availabilityForm = ref({
@@ -45,10 +47,6 @@ const visibleAvailabilitySlots = computed(() => {
   return availabilitySlots.value.filter((slot) => !slot.is_booked)
 })
 
-const bookedAvailabilityCount = computed(() => {
-  return availabilitySlots.value.filter((slot) => slot.is_booked).length
-})
-
 const filteredKids = computed(() => {
   const normalizedSearchTerm = childSearchTerm.value.trim().toLocaleLowerCase('th-TH')
   if (!normalizedSearchTerm) {
@@ -64,6 +62,18 @@ function sortSlots(slots: CaregiverAvailabilitySlotResponse[]) {
   return [...slots].sort((a, b) => {
     return `${a.available_date}${a.start_time}`.localeCompare(`${b.available_date}${b.start_time}`)
   })
+}
+
+function kidDisplayName(kid: KidResponse) {
+  if (kid.gender === 'male') {
+    return `ด.ช. ${kid.full_name}`
+  }
+
+  if (kid.gender === 'female') {
+    return `ด.ญ. ${kid.full_name}`
+  }
+
+  return kid.full_name
 }
 
 function toggleKidDetails(kidId: string) {
@@ -186,6 +196,34 @@ async function removeSlot(slotId: string) {
   }
 }
 
+function requestSlotDelete(slot: CaregiverAvailabilitySlotResponse) {
+  if (slot.is_booked) {
+    return
+  }
+
+  slotPendingDelete.value = slot
+  availabilityMessage.value = ''
+  errorMessage.value = ''
+}
+
+function cancelSlotDelete() {
+  if (deletingSlotId.value) {
+    return
+  }
+
+  slotPendingDelete.value = null
+}
+
+async function confirmSlotDelete() {
+  if (!slotPendingDelete.value) {
+    return
+  }
+
+  const slotId = slotPendingDelete.value.id
+  await removeSlot(slotId)
+  slotPendingDelete.value = null
+}
+
 onMounted(async () => {
   await loadKids()
   await loadAvailability()
@@ -200,21 +238,13 @@ onMounted(async () => {
         <span class="brand-name">OT@HOME</span>
       </RouterLink>
 
-      <RouterLink class="user-avatar-link" to="/account" aria-label="ข้อมูลบัญชี">
-        <img
-          v-if="authStore.user?.profile_image_data"
-          :src="authStore.user.profile_image_data"
-          alt=""
-        />
-        <i v-else class="bi bi-person-fill" aria-hidden="true"></i>
-      </RouterLink>
+      <ProfileMenu />
     </nav>
 
     <section class="dashboard-shell" aria-labelledby="caregiver-title">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">OT@HOME Caregiver</p>
-          <h1 id="caregiver-title">เด็กที่ได้รับมอบหมาย</h1>
+          <h1 id="caregiver-title">{{ authStore.user?.full_name ?? 'นักกิจกรรมบำบัด' }}</h1>
         </div>
 
         <div class="summary-strip" aria-label="ภาพรวม">
@@ -225,10 +255,6 @@ onMounted(async () => {
           <div class="summary-item">
             <span>เวลาว่าง</span>
             <strong>{{ openAvailabilityCount }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>ถูกจองแล้ว</span>
-            <strong>{{ bookedAvailabilityCount }}</strong>
           </div>
         </div>
       </div>
@@ -299,6 +325,7 @@ onMounted(async () => {
               <tr>
                 <th scope="col">ชื่อเด็ก</th>
                 <th scope="col">เลขประชาชน</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>
@@ -306,7 +333,7 @@ onMounted(async () => {
                 <tr>
                   <td>
                     <span class="kid-name">
-                      {{ kid.full_name }}
+                      {{ kidDisplayName(kid) }}
                     </span>
                   </td>
                   <td>{{ kid.thai_id_masked }}</td>
@@ -409,32 +436,48 @@ onMounted(async () => {
                     <template v-if="editingSlotId === slot.id">
                       <button
                         type="button"
-                        class="text-button"
+                        class="slot-action slot-action--save"
                         :disabled="isSubmittingAvailability"
+                        aria-label="บันทึกเวลา"
+                        title="บันทึก"
                         @click="submitSlotUpdate(slot.id)"
                       >
-                        บันทึก
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>
                       </button>
-                      <button type="button" class="text-button" @click="cancelEditSlot">
-                        ยกเลิก
+                      <button
+                        type="button"
+                        class="slot-action"
+                        aria-label="ยกเลิกการแก้ไข"
+                        title="ยกเลิก"
+                        @click="cancelEditSlot"
+                      >
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
                       </button>
                     </template>
                     <template v-else>
                       <button
                         type="button"
-                        class="text-button"
+                        class="slot-action slot-action--edit"
                         :disabled="slot.is_booked"
+                        aria-label="แก้ไขเวลาว่าง"
+                        title="แก้ไข"
                         @click="startEditSlot(slot)"
                       >
-                        แก้ไข
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
                       </button>
                       <button
                         type="button"
-                        class="danger-button"
+                        class="slot-action slot-action--danger"
                         :disabled="slot.is_booked || deletingSlotId === slot.id"
-                        @click="removeSlot(slot.id)"
+                        aria-label="ลบเวลาว่าง"
+                        title="ลบ"
+                        @click="requestSlotDelete(slot)"
                       >
-                        {{ deletingSlotId === slot.id ? 'กำลังลบ' : 'ลบ' }}
+                        <i
+                          class="bi"
+                          :class="deletingSlotId === slot.id ? 'bi-hourglass-split' : 'bi-trash'"
+                          aria-hidden="true"
+                        ></i>
                       </button>
                     </template>
                   </div>
@@ -445,6 +488,63 @@ onMounted(async () => {
         </section>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="slotPendingDelete"
+        class="confirm-overlay"
+        role="presentation"
+        @click.self="cancelSlotDelete"
+      >
+        <section
+          class="confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-slot-title"
+        >
+          <div class="confirm-icon confirm-icon--danger" aria-hidden="true">
+            <i class="bi bi-trash"></i>
+          </div>
+
+          <div>
+            <h2 id="delete-slot-title">ยืนยันการลบเวลาว่าง</h2>
+            <p>
+              ต้องการลบเวลาว่างวันที่
+              <strong>{{ slotPendingDelete.available_date }}</strong>
+              เวลา
+              <strong>
+                {{ slotPendingDelete.start_time.slice(0, 5) }} -
+                {{ slotPendingDelete.end_time.slice(0, 5) }}
+              </strong>
+              ใช่ไหม
+            </p>
+          </div>
+
+          <div class="confirm-actions">
+            <button
+              type="button"
+              class="confirm-button confirm-button--ghost"
+              @click="cancelSlotDelete"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              class="confirm-button confirm-button--danger"
+              :disabled="deletingSlotId === slotPendingDelete.id"
+              @click="confirmSlotDelete"
+            >
+              <i
+                class="bi"
+                :class="deletingSlotId === slotPendingDelete.id ? 'bi-hourglass-split' : 'bi-trash'"
+                aria-hidden="true"
+              ></i>
+              {{ deletingSlotId === slotPendingDelete.id ? 'กำลังลบ...' : 'ลบเวลาว่าง' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </main>
 </template>
 
@@ -547,7 +647,7 @@ onMounted(async () => {
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid rgb(219 231 245 / 0.92);
   border-radius: 0.8rem;
@@ -725,10 +825,46 @@ h2 {
   text-align: center;
 }
 
-table {
+.table-panel table {
   width: 100%;
-  min-width: 32rem;
+  min-width: 0 !important;
+  table-layout: fixed;
   border-collapse: collapse;
+}
+
+.table-panel:first-child th:nth-child(1),
+.table-panel:first-child td:nth-child(1) {
+  width: 32%;
+}
+
+.table-panel:first-child th:nth-child(2),
+.table-panel:first-child td:nth-child(2) {
+  width: 32%;
+}
+
+.table-panel:first-child th:nth-child(3),
+.table-panel:first-child td:nth-child(3) {
+  width: 36%;
+}
+
+.table-panel:nth-child(2) th:nth-child(1),
+.table-panel:nth-child(2) td:nth-child(1) {
+  width: 26%;
+}
+
+.table-panel:nth-child(2) th:nth-child(2),
+.table-panel:nth-child(2) td:nth-child(2) {
+  width: 28%;
+}
+
+.table-panel:nth-child(2) th:nth-child(3),
+.table-panel:nth-child(2) td:nth-child(3) {
+  width: 22%;
+}
+
+.table-panel:nth-child(2) th:nth-child(4),
+.table-panel:nth-child(2) td:nth-child(4) {
+  width: 24%;
 }
 
 th,
@@ -744,10 +880,6 @@ th {
   background: #f8fbff;
   font-size: 0.82rem;
   font-weight: 800;
-}
-
-.table-panel:first-child th:last-child {
-  color: transparent;
 }
 
 td {
@@ -768,10 +900,10 @@ td {
   justify-content: center;
   border: 1px solid rgb(59 130 246 / 0.28);
   border-radius: 0.45rem;
-  padding: 0 0.75rem;
+  padding: 0 0.58rem;
   color: var(--color-primary);
   background: rgb(59 130 246 / 0.08);
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 850;
   text-decoration: none;
   white-space: nowrap;
@@ -864,22 +996,67 @@ td {
 .row-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.35rem;
+}
+
+.slot-action {
+  display: inline-grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  color: var(--color-muted);
+  background: #ffffff;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.slot-action--save,
+.slot-action--edit {
+  border-color: rgb(59 130 246 / 0.3);
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.08);
+}
+
+.slot-action--danger {
+  border-color: rgb(220 38 38 / 0.24);
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.slot-action:hover:not(:disabled),
+.slot-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0.25rem 0.75rem rgb(31 41 55 / 0.12);
+}
+
+.slot-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  box-shadow: none;
 }
 
 .actions-cell {
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .inline-time {
   display: flex;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .inline-input {
   width: 100%;
-  min-width: 7.5rem;
+  min-width: 0;
   height: 2.2rem;
   border: 1px solid var(--color-border);
   border-radius: 0.45rem;
@@ -906,6 +1083,163 @@ td {
   border: 1px solid rgb(22 163 74 / 0.2);
   color: #166534;
   background: #f0fdf4;
+}
+
+.confirm-overlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.46);
+  backdrop-filter: blur(4px);
+}
+
+.confirm-dialog {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  width: min(31rem, 100%);
+  border: 1px solid rgb(219 231 245 / 0.9);
+  border-radius: 1rem;
+  padding: 1.15rem;
+  background: var(--color-surface);
+  box-shadow: 0 24px 70px rgb(15 23 42 / 0.22);
+}
+
+.confirm-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  font-size: 1.2rem;
+}
+
+.confirm-icon--danger {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+.confirm-dialog strong {
+  color: var(--color-text);
+}
+
+.confirm-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding-top: 0.2rem;
+}
+
+.confirm-button {
+  display: inline-flex;
+  min-height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.55rem;
+  padding: 0 1rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.confirm-button--ghost {
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  background: #ffffff;
+}
+
+.confirm-button--danger {
+  border: 1px solid rgb(220 38 38 / 0.24);
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.confirm-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+:global(:root[data-theme='dark']) .table-panel,
+:global(:root[data-theme='dark']) .availability-panel {
+  border-color: var(--admin-border);
+  background: var(--app-surface);
+}
+
+:global(:root[data-theme='dark']) .list-header,
+:global(:root[data-theme='dark']) th,
+:global(:root[data-theme='dark']) .detail-row td {
+  border-color: var(--admin-border);
+  background: var(--app-surface-soft);
+}
+
+:global(:root[data-theme='dark']) td {
+  border-color: var(--admin-border);
+  color: var(--color-text);
+}
+
+:global(:root[data-theme='dark']) .search-field,
+:global(:root[data-theme='dark']) .refresh-button,
+:global(:root[data-theme='dark']) .inline-input,
+:global(:root[data-theme='dark']) .slot-action {
+  border-color: var(--admin-border);
+  color: var(--color-text);
+  background: var(--app-input-bg);
+}
+
+:global(:root[data-theme='dark']) .slot-action--save,
+:global(:root[data-theme='dark']) .slot-action--edit {
+  border-color: rgb(122 167 255 / 0.32);
+  color: var(--color-primary);
+  background: rgb(122 167 255 / 0.12);
+}
+
+:global(:root[data-theme='dark']) .slot-action--danger {
+  border-color: rgb(248 113 113 / 0.28);
+  color: #fca5a5;
+  background: var(--app-danger-soft);
+}
+
+:global(:root[data-theme='dark']) .confirm-dialog {
+  border-color: var(--admin-border);
+  background: var(--app-surface);
+}
+
+:global(:root[data-theme='dark']) .confirm-icon--danger,
+:global(:root[data-theme='dark']) .confirm-button--danger {
+  border-color: rgb(248 113 113 / 0.28);
+  color: #fca5a5;
+  background: var(--app-danger-soft);
+}
+
+:global(:root[data-theme='dark']) .confirm-button--ghost {
+  border-color: var(--admin-border);
+  color: var(--color-text);
+  background: var(--app-input-bg);
+}
+
+:global(:root[data-theme='dark']) .list-header h2,
+:global(:root[data-theme='dark']) .kid-name {
+  color: var(--color-text);
+}
+
+:global(:root[data-theme='dark']) .list-header p,
+:global(:root[data-theme='dark']) .detail-row td {
+  color: var(--color-muted);
 }
 
 @media (max-width: 900px) {

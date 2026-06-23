@@ -132,6 +132,55 @@ def create_case_manager(
     return user
 
 
+def list_case_managers(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.User]:
+    statement = (
+        select(models.User)
+        .join(models.User.case_manager_profile)
+        .where(models.User.role == models.UserRole.CASE_MANAGER)
+        .where(models.User.is_active.is_(True))
+        .order_by(models.User.full_name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement))
+
+
+def get_case_manager_by_id(db: Session, case_manager_id: UUID) -> models.User | None:
+    statement = (
+        select(models.User)
+        .join(models.User.case_manager_profile)
+        .where(models.User.id == case_manager_id)
+        .where(models.User.role == models.UserRole.CASE_MANAGER)
+    )
+    return db.scalar(statement)
+
+
+def update_case_manager(
+    db: Session,
+    case_manager: models.User,
+    user_in: schemas.CaseManagerUpdate,
+) -> models.User:
+    case_manager.full_name = user_in.full_name
+    case_manager.date_of_birth = user_in.date_of_birth
+    case_manager.gender = user_in.gender.value
+    case_manager.phone = user_in.phone
+    case_manager.email = user_in.email
+    if case_manager.case_manager_profile is not None:
+        update_address(case_manager.case_manager_profile.address, user_in.address)
+    db.commit()
+    db.refresh(case_manager)
+    return case_manager
+
+
+def deactivate_case_manager(db: Session, case_manager: models.User) -> None:
+    case_manager.is_active = False
+    db.commit()
+
+
 def create_admin(db: Session, thai_id: str, password: str) -> models.User:
     user = models.User(
         thai_id=thai_id,
@@ -589,6 +638,20 @@ def get_denver_evaluation_for_kid(
         .where(models.DenverEvaluation.kid_id == kid.id)
     )
     return db.scalar(statement)
+
+
+def update_denver_evaluation(
+    db: Session,
+    evaluation: models.DenverEvaluation,
+    evaluation_in: schemas.DenverEvaluationUpdate,
+) -> models.DenverEvaluation:
+    evaluation.aspect_1_result = evaluation_in.aspect_1_result
+    evaluation.aspect_2_result = evaluation_in.aspect_2_result
+    evaluation.aspect_3_result = evaluation_in.aspect_3_result
+    evaluation.aspect_4_result = evaluation_in.aspect_4_result
+    db.commit()
+    db.refresh(evaluation)
+    return evaluation
 
 
 def list_home_program_activities_for_kid(
