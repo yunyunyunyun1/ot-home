@@ -308,7 +308,13 @@ function hideMissingLogo(index: number) {
 
 .hero-panel,
 .objective-panel,
-.summary-card,
+.summary-card {
+  border: 1px solid rgb(219 231 245 / 0.92);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: 0 20px 54px rgb(31 41 55 / 0.08);
+}
+
 .hero-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
