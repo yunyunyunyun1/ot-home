@@ -21,14 +21,6 @@ const childSearchTerm = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 
-const assignedTherapistCount = computed(() => {
-  return kids.value.filter((kid) => kid.assigned_caregiver).length
-})
-
-const totalHomeProgramCount = computed(() => {
-  return Object.values(homeProgramsByKidId.value).reduce((total, items) => total + items.length, 0)
-})
-
 const filteredKids = computed(() => {
   const normalizedSearchTerm = childSearchTerm.value.trim().toLocaleLowerCase('th-TH')
   if (!normalizedSearchTerm) {
@@ -123,23 +115,7 @@ onMounted(loadKids)
     <section class="dashboard-shell" aria-labelledby="volunteer-title">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">OT@HOME Village Volunteer</p>
-          <h1 id="volunteer-title">เด็กที่ได้รับมอบหมาย</h1>
-        </div>
-
-        <div class="summary-strip" aria-label="ภาพรวม">
-          <div class="summary-item">
-            <span>เด็กที่ดูแล</span>
-            <strong>{{ kids.length }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>มีนักบำบัดแล้ว</span>
-            <strong>{{ assignedTherapistCount }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>โฮมโปรแกรมล่าสุด</span>
-            <strong>{{ totalHomeProgramCount }}</strong>
-          </div>
+          <h1 id="volunteer-title">{{ authStore.user?.full_name ?? 'ผู้ดูแลเด็ก' }}</h1>
         </div>
       </div>
 
@@ -386,13 +362,6 @@ onMounted(loadKids)
   align-items: end;
 }
 
-.eyebrow {
-  margin: 0 0 0.55rem;
-  color: var(--color-primary);
-  font-size: 0.82rem;
-  font-weight: 850;
-}
-
 h1,
 h2,
 h3,
@@ -409,39 +378,6 @@ h1 {
 h2 {
   font-size: 1.06rem;
   line-height: 1.25;
-}
-
-.summary-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid rgb(219 231 245 / 0.92);
-  border-radius: 0.8rem;
-  background: rgb(255 255 255 / 0.84);
-  box-shadow: 0 18px 44px rgb(31 41 55 / 0.07);
-}
-
-.summary-item {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.85rem 0.95rem;
-  border-left: 1px solid var(--color-border);
-}
-
-.summary-item:first-child {
-  border-left: 0;
-}
-
-.summary-item span {
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.summary-item strong {
-  color: var(--color-text);
-  font-size: 1.45rem;
-  line-height: 1;
 }
 
 .form-alert {
@@ -807,19 +743,6 @@ td:nth-child(3) {
   .top-nav,
   .dashboard-shell {
     width: min(100% - 1.25rem, 1220px);
-  }
-
-  .summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-item {
-    border-left: 0;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .summary-item:first-child {
-    border-top: 0;
   }
 }
 </style>

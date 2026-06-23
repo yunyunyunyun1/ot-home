@@ -685,6 +685,7 @@ onMounted(loadPage)
                   <th scope="col">กล้ามเนื้อมัดเล็ก</th>
                   <th scope="col">ภาษา</th>
                   <th scope="col">กล้ามเนื้อมัดใหญ่</th>
+                  <th scope="col">แก้ไข</th>
                   <th scope="col">Home Program</th>
                 </tr>
               </thead>
@@ -713,6 +714,17 @@ onMounted(loadPage)
                     }}</span>
                   </td>
                   <td>
+                    <button
+                      type="button"
+                      class="table-action-button table-action-button--icon"
+                      aria-label="แก้ไขผลประเมิน"
+                      title="แก้ไขผลประเมิน"
+                      @click="openEditEvaluationModal(evaluation)"
+                    >
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                  <td>
                     <div class="table-action-group">
                       <button
                         type="button"
@@ -725,7 +737,9 @@ onMounted(loadPage)
                       </button>
                       <button
                         type="button"
-                        class="table-action-button"
+                        class="table-action-button table-action-button--icon table-action-button--add"
+                        aria-label="เพิ่ม Home Program"
+                        title="เพิ่ม Home Program"
                         @click="openHomeProgramModal(evaluation)"
                       >
                         เพิ่ม
@@ -1969,6 +1983,20 @@ td {
 .table-action-button--icon {
   width: 2.1rem;
   padding: 0;
+}
+
+.table-action-button--add {
+  font-size: 0;
+}
+
+.table-action-button--add::before {
+  content: '+';
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.table-action-group .table-action-button--icon:not(.table-action-button--add) {
+  display: none;
 }
 
 .table-action-button:hover,

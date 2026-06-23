@@ -84,6 +84,48 @@ function hideMissingLogo(index: number) {
         </aside>
       </header>
 
+      <section class="objective-panel" aria-labelledby="objective-title">
+        <div class="objective-heading">
+          <p class="eyebrow">Project Objective</p>
+          <h2 id="objective-title">วัตถุประสงค์ของโครงการ</h2>
+        </div>
+
+        <div class="objective-content">
+          <article class="objective-primary">
+            <h3>วัตถุประสงค์หลัก</h3>
+            <p>
+              เพื่อให้เด็กปฐมวัยที่ต้องได้รับบริการส่งเสริมพัฒนาการ โดยเฉพาะเด็กพัฒนาการล่าช้า
+              สามารถเข้าถึงบริการการส่งเสริมพัฒนาการ ด้วยโปรแกรมกิจกรรมบำบัดแบบเข้มข้นที่บ้าน
+              เพื่อส่งเสริมและฟื้นฟูพัฒนาการให้เหมาะสมตามวัย
+              และเพิ่มศักยภาพการดำรงชีวิตและคุณภาพชีวิตของเด็กในระยะยาว
+            </p>
+          </article>
+
+          <article class="objective-secondary">
+            <h3>วัตถุประสงค์ย่อย</h3>
+            <ol class="objective-list">
+              <li>
+                พัฒนารูปแบบระบบการให้บริการส่งเสริมพัฒนาการเด็กปฐมวัย
+                ด้วยโปรแกรมกิจกรรมบำบัดแบบเข้มข้นที่บ้าน รวมถึงการบริหารจัดการที่มีประสิทธิภาพ
+              </li>
+              <li>พัฒนาระบบการให้บริการโดยการร่วมบริการระหว่างภาครัฐและเอกชน</li>
+              <li>
+                ประเมินผลการให้บริการ โดยครอบคลุมการประเมินเด็ก ผลกระทบต่อครอบครัว
+                และการประเมินผู้ให้บริการแต่ละระดับ
+              </li>
+              <li>
+                พัฒนาระบบข้อมูลทางอิเล็กทรอนิกส์ที่รองรับการให้บริการ
+                โดยเน้นการให้ผู้ปกครองมีส่วนร่วมในการรายงานข้อมูล
+              </li>
+              <li>
+                พัฒนาเป็นข้อเสนอชุดสิทธิประโยชน์ภายใต้ระบบหลักประกันสุขภาพแห่งชาติ Universal
+                Coverage Benefit Package (UCBP)
+              </li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
       <section class="summary-grid" aria-label="ภาพรวมระบบ">
         <article class="summary-card">
           <span class="summary-icon summary-icon--blue">
@@ -108,31 +150,6 @@ function hideMissingLogo(index: number) {
           <h2>ทำงานร่วมกัน</h2>
           <p>เชื่อมโยง Case Manager นักกิจกรรมบำบัด ผู้ดูแลเด็ก และครอบครัวในกระบวนการเดียวกัน</p>
         </article>
-      </section>
-
-      <section class="workflow-panel" aria-labelledby="workflow-title">
-        <div>
-          <p class="eyebrow">Workflow Summary</p>
-          <h2 id="workflow-title">ภาพรวมการทำงานของระบบ</h2>
-        </div>
-
-        <div class="workflow-steps">
-          <article>
-            <span>1</span>
-            <strong>จัดการพื้นที่</strong>
-            <p>เพิ่มข้อมูลและจัดทีมดูแลตามจังหวัดที่รับผิดชอบ</p>
-          </article>
-          <article>
-            <span>2</span>
-            <strong>ให้บริการและประเมิน</strong>
-            <p>บันทึกผลการดูแลตามรอบนัดหมายและบทบาทผู้ให้บริการ</p>
-          </article>
-          <article>
-            <span>3</span>
-            <strong>ติดตามที่บ้าน</strong>
-            <p>ใช้ Home Program ล่าสุดช่วยส่งเสริมการทำกิจกรรมต่อเนื่อง</p>
-          </article>
-        </div>
       </section>
     </section>
 
@@ -290,14 +307,8 @@ function hideMissingLogo(index: number) {
 }
 
 .hero-panel,
+.objective-panel,
 .summary-card,
-.workflow-panel {
-  border: 1px solid rgb(219 231 245 / 0.92);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 0.9);
-  box-shadow: 0 20px 54px rgb(31 41 55 / 0.08);
-}
-
 .hero-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
@@ -382,10 +393,82 @@ h2 {
 }
 
 .privacy-panel p,
-.summary-card p,
-.workflow-steps p {
+.objective-primary p,
+.objective-list,
+.summary-card p {
   color: var(--color-muted);
   line-height: 1.7;
+}
+
+.objective-panel {
+  display: grid;
+  gap: 1.1rem;
+  padding: clamp(1.1rem, 3vw, 1.5rem);
+}
+
+.objective-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.objective-heading .eyebrow {
+  margin-bottom: 0;
+}
+
+.objective-content {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.objective-primary,
+.objective-secondary {
+  display: grid;
+  gap: 0.7rem;
+  min-height: 100%;
+  border: 1px solid rgb(219 231 245 / 0.78);
+  border-radius: 0.85rem;
+  padding: 1rem;
+  background: #fbfdff;
+}
+
+.objective-primary {
+  border-left: 0.3rem solid var(--color-primary);
+}
+
+.objective-secondary {
+  border-left: 0.3rem solid #34d399;
+}
+
+.objective-panel h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.objective-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.objective-list li::marker {
+  color: var(--color-primary);
+  font-weight: 900;
+}
+
+:global(:root[data-theme='dark']) .objective-panel {
+  border-color: rgb(148 163 184 / 0.24);
+  background: rgb(30 41 59 / 0.92);
+}
+
+:global(:root[data-theme='dark']) .objective-primary,
+:global(:root[data-theme='dark']) .objective-secondary {
+  border-color: rgb(148 163 184 / 0.22);
+  background: rgb(15 23 42 / 0.56);
 }
 
 .summary-grid {
@@ -420,42 +503,6 @@ h2 {
 .summary-icon--amber {
   color: #b45309;
   background: #fef3c7;
-}
-
-.workflow-panel {
-  display: grid;
-  gap: 1rem;
-  padding: 1.1rem;
-}
-
-.workflow-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.workflow-steps article {
-  display: grid;
-  gap: 0.45rem;
-  border: 1px solid rgb(219 231 245 / 0.84);
-  border-radius: 0.75rem;
-  padding: 0.9rem;
-  background: #fbfdff;
-}
-
-.workflow-steps span {
-  display: inline-grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border-radius: 999px;
-  color: #ffffff;
-  background: var(--color-primary);
-  font-weight: 900;
-}
-
-.workflow-steps strong {
-  color: var(--color-text);
 }
 
 .welcome-overlay {
@@ -553,8 +600,8 @@ h2 {
 
 @media (max-width: 860px) {
   .hero-panel,
-  .summary-grid,
-  .workflow-steps {
+  .objective-content,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 }
