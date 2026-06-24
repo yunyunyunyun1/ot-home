@@ -235,6 +235,7 @@ def create_kid(
         full_name=kid_in.full_name,
         date_of_birth=kid_in.date_of_birth,
         gender=kid_in.gender.value,
+        notable_symptoms=kid_in.notable_symptoms,
         address=address,
         created_by_case_manager=case_manager,
     )
@@ -261,6 +262,7 @@ def update_kid(
     kid.full_name = kid_in.full_name
     kid.date_of_birth = kid_in.date_of_birth
     kid.gender = kid_in.gender.value
+    kid.notable_symptoms = kid_in.notable_symptoms
     update_address(kid.address, kid_in.address)
     db.commit()
     db.refresh(kid)

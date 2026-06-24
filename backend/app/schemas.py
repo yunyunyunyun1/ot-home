@@ -2,11 +2,24 @@ from datetime import date, datetime, time
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from app.models import DenverAspectResult, UserGender, UserRole
 
-ThaiId = Annotated[str, Field(min_length=13, max_length=13, pattern=r"^\d{13}$")]
+def validate_thai_id_checksum(value: str) -> str:
+    total = sum(int(digit) * (13 - index) for index, digit in enumerate(value[:12]))
+    check_digit = (11 - (total % 11)) % 10
+    if check_digit != int(value[12]):
+        raise ValueError("Thai ID checksum is invalid")
+    return value
+
+
+ThaiIdDigits = Annotated[str, Field(min_length=13, max_length=13, pattern=r"^\d{13}$")]
+ThaiId = Annotated[
+    str,
+    Field(min_length=13, max_length=13, pattern=r"^\d{13}$"),
+    AfterValidator(validate_thai_id_checksum),
+]
 StrongPassword = Annotated[str, Field(min_length=8, max_length=128)]
 
 
@@ -131,7 +144,7 @@ class UserAccountUpdate(BaseModel):
 
 
 class AdminPasswordReset(BaseModel):
-    thai_id: ThaiId
+    thai_id: ThaiIdDigits
     temporary_password: StrongPassword
 
     @field_validator("temporary_password")
@@ -159,7 +172,7 @@ class CaseManagerRead(UserRead):
 
 
 class LoginRequest(BaseModel):
-    thai_id: ThaiId
+    thai_id: ThaiIdDigits
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -174,6 +187,7 @@ class KidCreate(BaseModel):
     full_name: str = Field(min_length=1, max_length=160)
     date_of_birth: date
     gender: UserGender
+    notable_symptoms: str | None = Field(default=None, max_length=2000)
     address: AddressCreate
 
 
@@ -181,6 +195,7 @@ class KidUpdate(BaseModel):
     full_name: str = Field(min_length=1, max_length=160)
     date_of_birth: date
     gender: UserGender
+    notable_symptoms: str | None = Field(default=None, max_length=2000)
     address: AddressCreate
 
 
@@ -200,6 +215,7 @@ class KidRead(BaseModel):
     full_name: str
     date_of_birth: date | None
     gender: UserGender | None
+    notable_symptoms: str | None
     address: AddressRead
     assigned_caregiver: AssignedCaregiverRead | None
     assigned_village_volunteers: list[AssignedVillageVolunteerRead] = Field(default_factory=list)
@@ -305,6 +321,7 @@ class DenverEvaluationRead(DenverEvaluationCreate):
     id: UUID
     kid_id: UUID
     evaluated_by_caregiver_id: UUID
+    evaluated_by_caregiver_name: str
     therapy_session_id: UUID | None = None
     assignment_id: UUID | None = None
     availability_slot_id: UUID | None = None

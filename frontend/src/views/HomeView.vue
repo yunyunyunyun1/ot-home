@@ -55,7 +55,7 @@ function hideMissingLogo(index: number) {
       <div class="nav-actions">
         <template v-if="isLoggedIn">
           <ProfileMenu />
-          <RouterLink class="nav-button" :to="roleHomePath">ไปยังหน้าทำงาน</RouterLink>
+          <RouterLink class="nav-button" :to="roleHomePath">หน้าหลัก</RouterLink>
         </template>
         <template v-else>
           <RouterLink class="nav-link" to="/login">เข้าสู่ระบบ</RouterLink>
@@ -67,21 +67,11 @@ function hideMissingLogo(index: number) {
     <section class="home-shell" aria-labelledby="home-title">
       <header class="hero-panel">
         <div class="hero-copy">
-          <p class="eyebrow">ระบบบริการแบบไร้รอยต่อ</p>
           <h1 id="home-title">OT@HOME</h1>
           <p class="intro">
             ระบบบริการส่งเสริมพัฒนาการเด็กปฐมวัยด้วยโปรแกรมกิจกรรมบำบัดแบบเข้มข้นที่บ้าน
           </p>
         </div>
-
-        <aside class="privacy-panel" aria-label="นโยบายความเป็นส่วนตัว">
-          <span class="privacy-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
-          <h2>พื้นที่ข้อมูลส่วนบุคคล</h2>
-          <p>
-            หน้าหลักแสดงเฉพาะข้อมูลสรุประดับระบบ รายละเอียดเด็ก ครอบครัว
-            และผลประเมินจะแสดงหลังเข้าสู่ระบบตามสิทธิ์เท่านั้น
-          </p>
-        </aside>
       </header>
 
       <section class="objective-panel" aria-labelledby="objective-title">
@@ -131,24 +121,32 @@ function hideMissingLogo(index: number) {
           <span class="summary-icon summary-icon--blue">
             <i class="bi bi-shield-lock" aria-hidden="true"></i>
           </span>
-          <h2>เข้าถึงตามบทบาท</h2>
-          <p>ผู้ใช้แต่ละประเภทเห็นเฉพาะหน้าที่และข้อมูลที่เกี่ยวข้องกับความรับผิดชอบของตน</p>
+          <h2>เพิ่มการเข้าถึงบริการ</h2>
+          <p>
+            เด็กจะได้รับบริการส่งเสริมพัฒนาการเด็กปฐมวัย ด้วยโปรแกรมกิจกรรมบำบัดแบบเข้มข้นที่บ้าน
+          </p>
         </article>
 
         <article class="summary-card">
           <span class="summary-icon summary-icon--green">
             <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
           </span>
-          <h2>ติดตามการดูแล</h2>
-          <p>รองรับการนัดหมาย การประเมิน และการมอบหมาย Home Program อย่างต่อเนื่อง</p>
+          <h2>การติดตามการดูแล</h2>
+          <p>
+            รองรับการนัดหมาย การประเมินผลลัพธ์ และการมอบหมายแผนการรักษา (Home Program)
+            อย่างต่อเนื่อง
+          </p>
         </article>
 
         <article class="summary-card">
           <span class="summary-icon summary-icon--amber">
             <i class="bi bi-people" aria-hidden="true"></i>
           </span>
-          <h2>ทำงานร่วมกัน</h2>
-          <p>เชื่อมโยง Case Manager นักกิจกรรมบำบัด ผู้ดูแลเด็ก และครอบครัวในกระบวนการเดียวกัน</p>
+          <h2>การทำงานร่วมกัน</h2>
+          <p>
+            เกิดเครือข่ายที่เชื่อมโยงการทำงานร่วมกัน นักกิจกรรมบำบัด บุคลากรสาธารณสุข
+            อาสาสมัครสาธารณสุข ผู้ปกครอง และภาคีเครือข่ายในพื้นที่
+          </p>
         </article>
       </section>
     </section>
@@ -317,7 +315,7 @@ function hideMissingLogo(index: number) {
 
 .hero-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   align-items: stretch;
   padding: clamp(1.25rem, 4vw, 2rem);
@@ -373,32 +371,12 @@ h2 {
   line-height: 1.8;
 }
 
-.privacy-panel {
-  display: grid;
-  align-content: center;
-  gap: 0.65rem;
-  border: 1px solid rgb(59 130 246 / 0.18);
-  border-radius: 0.9rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, rgb(59 130 246 / 0.1), transparent 46%), #fbfdff;
-}
-
-.privacy-icon,
 .summary-icon {
   display: inline-grid;
   place-items: center;
   border-radius: 0.85rem;
 }
 
-.privacy-icon {
-  width: 3.1rem;
-  height: 3.1rem;
-  color: #2563eb;
-  background: #dbeafe;
-  font-size: 1.35rem;
-}
-
-.privacy-panel p,
 .objective-primary p,
 .objective-list,
 .summary-card p {
@@ -431,7 +409,8 @@ h2 {
 .objective-primary,
 .objective-secondary {
   display: grid;
-  gap: 0.7rem;
+  align-content: start;
+  gap: 0.85rem;
   min-height: 100%;
   border: 1px solid rgb(219 231 245 / 0.78);
   border-radius: 0.85rem;
@@ -449,16 +428,32 @@ h2 {
 
 .objective-panel h3 {
   margin: 0;
-  color: var(--color-text);
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
   font-size: 1rem;
   line-height: 1.35;
+}
+
+.objective-primary h3 {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.objective-secondary h3 {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.objective-primary p {
+  padding: 0;
 }
 
 .objective-list {
   display: grid;
   gap: 0.65rem;
   margin: 0;
-  padding-left: 1.25rem;
+  padding-left: 1.35rem;
 }
 
 .objective-list li::marker {

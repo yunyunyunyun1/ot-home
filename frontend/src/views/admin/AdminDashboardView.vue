@@ -16,7 +16,7 @@ import {
 } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
-import { toDigits } from '../../utils/digits'
+import { isValidThaiId, toDigits } from '../../utils/digits'
 
 const authStore = useAuthStore()
 const isSubmittingReset = ref(false)
@@ -164,6 +164,11 @@ async function submitCaseManager() {
   errorMessage.value = ''
   successMessage.value = ''
   resetUser.value = null
+
+  if (!editingCaseManagerId.value && !isValidThaiId(caseManagerForm.thai_id)) {
+    errorMessage.value = 'กรุณากรอกเลขประจำตัวประชาชนที่ถูกต้อง'
+    return
+  }
 
   const confirmed = window.confirm(
     editingCaseManagerId.value

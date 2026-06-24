@@ -18,6 +18,7 @@ const form = reactive({
 
 const isSubmitting = ref(false)
 const errorMessage = ref('')
+const showPassword = ref(false)
 
 function updateThaiId(event: Event) {
   form.thai_id = toDigits((event.target as HTMLInputElement).value)
@@ -91,15 +92,26 @@ async function submitForm() {
 
           <label>
             <span>รหัสผ่าน <strong class="required-marker">*</strong></span>
-            <input
-              v-model="form.password"
-              type="password"
-              minlength="1"
-              maxlength="128"
-              required
-              autocomplete="current-password"
-              placeholder="กรอกรหัสผ่าน"
-            />
+            <div class="password-input-wrapper">
+              <input
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                minlength="1"
+                maxlength="128"
+                required
+                autocomplete="current-password"
+                placeholder="กรอกรหัสผ่าน"
+              />
+              <button
+                type="button"
+                class="password-toggle-button"
+                :aria-label="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                :title="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                @click="showPassword = !showPassword"
+              >
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true"></i>
+              </button>
+            </div>
           </label>
 
           <label class="remember-option">

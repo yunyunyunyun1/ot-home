@@ -6,6 +6,7 @@ export type KidCreatePayload = {
   full_name: string
   date_of_birth: string
   gender: string
+  notable_symptoms: string | null
   address: AddressPayload
 }
 
@@ -17,6 +18,7 @@ export type KidResponse = {
   full_name: string
   date_of_birth: string | null
   gender: string | null
+  notable_symptoms: string | null
   assigned_caregiver: {
     id: string
     full_name: string
@@ -88,6 +90,7 @@ export type DenverEvaluationResponse = DenverEvaluationPayload & {
   id: string
   kid_id: string
   evaluated_by_caregiver_id: string
+  evaluated_by_caregiver_name: string
   therapy_session_id: string | null
   assignment_id: string | null
   availability_slot_id: string | null

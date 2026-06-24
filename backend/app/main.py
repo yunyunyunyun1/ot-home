@@ -58,6 +58,12 @@ async def lifespan(app: FastAPI):
         )
         connection.execute(
             text(
+                "ALTER TABLE IF EXISTS kids "
+                "ADD COLUMN IF NOT EXISTS notable_symptoms TEXT"
+            )
+        )
+        connection.execute(
+            text(
                 "UPDATE kids "
                 "SET full_name = 'ไม่ระบุชื่อ' "
                 "WHERE full_name IS NULL"

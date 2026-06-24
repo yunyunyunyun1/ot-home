@@ -27,7 +27,7 @@ import {
   type ThaiSubdistrict,
 } from '../../data/thaiAddress'
 import { useAuthStore } from '../../stores/auth'
-import { toDigits } from '../../utils/digits'
+import { isValidThaiId, toDigits } from '../../utils/digits'
 
 const authStore = useAuthStore()
 const provinceOptions = [...thaiAddressData.provinces]
@@ -43,6 +43,7 @@ const form = reactive({
   full_name: '',
   date_of_birth: '',
   gender: '',
+  notable_symptoms: '',
   house_no: '',
   village_no: '',
   road: '',
@@ -62,6 +63,9 @@ const selectedSlotByCaregiverId = ref<Record<string, string>>({})
 const editingKidId = ref('')
 const deletingKidId = ref('')
 const kidPendingDeletion = ref<KidResponse | null>(null)
+const activeWorkspace = ref<'' | 'kids' | 'caregivers' | 'volunteers' | 'child-form' | 'matching'>(
+  '',
+)
 const directoryModalType = ref<'kids' | 'caregivers' | 'volunteers' | ''>('')
 const directorySearchTerm = ref('')
 const childSearchTerm = ref('')
@@ -168,6 +172,7 @@ const hasKidFormDraft = computed(() => {
     form.full_name,
     form.date_of_birth,
     form.gender,
+    form.notable_symptoms,
     form.house_no,
     form.village_no,
     form.road,
@@ -203,10 +208,41 @@ function caregiverAssignedCount(caregiverId: string): number {
   return kids.value.filter((kid) => kid.assigned_caregiver?.id === caregiverId).length
 }
 
+function caregiverAssignedKids(caregiverId: string): KidResponse[] {
+  return kids.value.filter((kid) => kid.assigned_caregiver?.id === caregiverId)
+}
+
 function villageVolunteerAssignedCount(villageVolunteerId: string): number {
   return kids.value.filter((kid) =>
     kid.assigned_village_volunteers.some((volunteer) => volunteer.id === villageVolunteerId),
   ).length
+}
+
+function villageVolunteerAssignedKids(villageVolunteerId: string): KidResponse[] {
+  return kids.value.filter((kid) =>
+    kid.assigned_village_volunteers.some((volunteer) => volunteer.id === villageVolunteerId),
+  )
+}
+
+function stageSummaryForKids(assignedKids: KidResponse[]) {
+  const summary = new Map<string, { label: string; className: string; count: number }>()
+
+  assignedKids.forEach((kid) => {
+    const status = kidMatchStatus(kid)
+    const current = summary.get(status.label)
+    if (current) {
+      current.count += 1
+      return
+    }
+
+    summary.set(status.label, {
+      label: status.label,
+      className: status.className,
+      count: 1,
+    })
+  })
+
+  return Array.from(summary.values())
 }
 
 function villageVolunteerNames(kid: KidResponse): string {
@@ -300,6 +336,7 @@ function resetForm() {
   form.full_name = ''
   form.date_of_birth = ''
   form.gender = ''
+  form.notable_symptoms = ''
   form.house_no = ''
   form.village_no = ''
   form.road = ''
@@ -313,7 +350,8 @@ function openCreateKidPanel() {
   }
   errorMessage.value = ''
   successMessage.value = ''
-  isKidPanelOpen.value = true
+  activeWorkspace.value = 'child-form'
+  isKidPanelOpen.value = false
 }
 
 function closeKidModal() {
@@ -338,24 +376,32 @@ function cancelKidModal() {
   errorMessage.value = ''
   successMessage.value = ''
   isKidPanelOpen.value = false
+  activeWorkspace.value = ''
 }
 
 function openMatchingWorkspace() {
+  activeWorkspace.value = 'matching'
   const firstKid = kids.value[0]
   if (!selectedKidId.value && firstKid) {
     selectedKidId.value = firstKid.id
   }
-  window.setTimeout(() => {
-    document.getElementById('matching-workspace')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    })
-  }, 0)
+}
+
+function closeMatchingWorkspace() {
+  activeWorkspace.value = ''
 }
 
 function openDirectoryModal(type: 'kids' | 'caregivers' | 'volunteers') {
   directorySearchTerm.value = ''
-  directoryModalType.value = type
+  directoryModalType.value = ''
+  activeWorkspace.value = type
+  if (type === 'kids') {
+    void loadKids()
+  } else if (type === 'caregivers') {
+    void loadCaregivers()
+  } else {
+    void loadVillageVolunteers()
+  }
 }
 
 function closeDirectoryModal() {
@@ -369,6 +415,7 @@ function buildPayload(): KidCreatePayload {
     full_name: form.full_name.trim(),
     date_of_birth: form.date_of_birth,
     gender: form.gender,
+    notable_symptoms: optionalValue(form.notable_symptoms),
     address: {
       house_no: optionalValue(form.house_no),
       village_no: optionalValue(form.village_no),
@@ -388,8 +435,45 @@ function buildUpdatePayload(): KidUpdatePayload {
     full_name: payload.full_name,
     date_of_birth: payload.date_of_birth,
     gender: payload.gender,
+    notable_symptoms: payload.notable_symptoms,
     address: payload.address,
   }
+}
+
+function validateKidForm(): boolean {
+  syncResponsibleProvince()
+
+  if (!editingKidId.value && !isValidThaiId(form.thai_id)) {
+    errorMessage.value = 'กรุณากรอกเลขประจำตัวประชาชนเด็กที่ถูกต้อง'
+    return false
+  }
+
+  if (!form.full_name.trim()) {
+    errorMessage.value = 'กรุณากรอกชื่อ-นามสกุลเด็ก'
+    return false
+  }
+
+  if (!form.date_of_birth) {
+    errorMessage.value = 'กรุณาเลือกวันเดือนปีเกิด'
+    return false
+  }
+
+  if (!form.gender) {
+    errorMessage.value = 'กรุณาเลือกเพศ'
+    return false
+  }
+
+  if (!selectedProvince.value) {
+    errorMessage.value = 'ไม่พบจังหวัดที่รับผิดชอบ กรุณาลองโหลดหน้าใหม่'
+    return false
+  }
+
+  if (!selectedDistrict.value || !selectedSubdistrict.value || !postalCode.value) {
+    errorMessage.value = 'กรุณาเลือกอำเภอ/เขต และตำบล/แขวงจากรายการ'
+    return false
+  }
+
+  return true
 }
 
 function fillFormFromKid(kid: KidResponse) {
@@ -412,6 +496,7 @@ function fillFormFromKid(kid: KidResponse) {
   form.full_name = kid.full_name
   form.date_of_birth = kid.date_of_birth ?? ''
   form.gender = kid.gender ?? ''
+  form.notable_symptoms = kid.notable_symptoms ?? ''
   form.house_no = kid.address.house_no ?? ''
   form.village_no = kid.address.village_no ?? ''
   form.road = kid.address.road ?? ''
@@ -420,7 +505,8 @@ function fillFormFromKid(kid: KidResponse) {
   form.subdistrict_id = subdistrict ? String(subdistrict.id) : ''
   errorMessage.value = ''
   successMessage.value = ''
-  isKidPanelOpen.value = true
+  activeWorkspace.value = 'child-form'
+  isKidPanelOpen.value = false
 }
 
 function syncResponsibleProvince() {
@@ -467,6 +553,11 @@ async function loadCaregivers() {
 async function submitForm() {
   errorMessage.value = ''
   successMessage.value = ''
+
+  if (!validateKidForm()) {
+    return
+  }
+
   isSubmitting.value = true
 
   try {
@@ -481,6 +572,7 @@ async function submitForm() {
     }
     resetForm()
     isKidPanelOpen.value = false
+    activeWorkspace.value = 'kids'
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError
@@ -684,65 +776,522 @@ onMounted(async () => {
       </div>
 
       <section class="command-center" aria-label="เมนูหลักสำหรับผู้ดูแลประจำจังหวัด">
-        <div class="command-section">
-          <div class="launcher-grid">
-            <button type="button" class="launcher-button" @click="openDirectoryModal('kids')">
-              <span class="launcher-icon launcher-icon--child">
-                <i class="bi bi-person-hearts" aria-hidden="true"></i>
-              </span>
-              <span>
-                <strong>รายชื่อเด็ก</strong>
-                <small>{{ kids.length }} คน</small>
-              </span>
-            </button>
-
-            <button type="button" class="launcher-button" @click="openDirectoryModal('caregivers')">
-              <span class="launcher-icon launcher-icon--therapist">
-                <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
-              </span>
-              <span>
-                <strong>นักกิจกรรมบำบัด</strong>
-                <small>{{ caregivers.length }} คน</small>
-              </span>
-            </button>
-
-            <button type="button" class="launcher-button" @click="openDirectoryModal('volunteers')">
-              <span class="launcher-icon launcher-icon--volunteer">
-                <i class="bi bi-people" aria-hidden="true"></i>
-              </span>
-              <span>
-                <strong>ผู้ดูแลเด็ก</strong>
-                <small>{{ villageVolunteers.length }} คน</small>
-              </span>
-            </button>
-
+        <aside class="workspace-menu" aria-label="แทบเมนูจัดการ">
+          <div class="workspace-menu-group">
+            <p>การจัดการข้อมูลเด็ก</p>
             <button
               type="button"
-              class="launcher-button launcher-button--primary"
+              class="workspace-menu-button"
+              :class="{ 'is-active': activeWorkspace === 'child-form' }"
               @click="openCreateKidPanel"
             >
-              <span class="launcher-icon launcher-icon--add">
-                <i class="bi bi-person-plus" aria-hidden="true"></i>
-              </span>
-              <span>
-                <strong>เพิ่มรายชื่อเด็ก</strong>
-                <small>สร้างข้อมูลเด็กในจังหวัด</small>
-              </span>
+              <i class="bi bi-person-plus" aria-hidden="true"></i>
+              <span>เพิ่ม/แก้ไขข้อมูลเด็ก</span>
             </button>
-
             <button
               type="button"
-              class="launcher-button launcher-button--primary"
+              class="workspace-menu-button"
+              :class="{ 'is-active': activeWorkspace === 'matching' }"
               @click="openMatchingWorkspace"
             >
-              <span class="launcher-icon launcher-icon--match">
-                <i class="bi bi-diagram-3" aria-hidden="true"></i>
-              </span>
-              <span>
-                <strong>จับคู่</strong>
-                <small>เลือกเด็ก นักบำบัด และผู้ดูแลเด็ก</small>
-              </span>
+              <i class="bi bi-diagram-3" aria-hidden="true"></i>
+              <span>จับคู่เด็กกับผู้ให้บริการ</span>
             </button>
+          </div>
+
+          <div class="workspace-menu-group">
+            <p>รายชื่อ</p>
+            <button
+              type="button"
+              class="workspace-menu-button"
+              :class="{ 'is-active': activeWorkspace === 'kids' }"
+              @click="openDirectoryModal('kids')"
+            >
+              <i class="bi bi-person-hearts" aria-hidden="true"></i>
+              <span>รายชื่อเด็ก</span>
+            </button>
+            <button
+              type="button"
+              class="workspace-menu-button"
+              :class="{ 'is-active': activeWorkspace === 'caregivers' }"
+              @click="openDirectoryModal('caregivers')"
+            >
+              <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+              <span>รายชื่อนักกิจกรรมบำบัด</span>
+            </button>
+            <button
+              type="button"
+              class="workspace-menu-button"
+              :class="{ 'is-active': activeWorkspace === 'volunteers' }"
+              @click="openDirectoryModal('volunteers')"
+            >
+              <i class="bi bi-people" aria-hidden="true"></i>
+              <span>รายชื่อผู้ดูแลเด็ก</span>
+            </button>
+          </div>
+        </aside>
+
+        <div class="command-section">
+          <div v-if="!activeWorkspace" class="workspace-empty-state">
+            <i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i>
+            <h2>กรุณาเลือกเมนู</h2>
+            <p>เลือกเมนูจากแทบด้านซ้ายเพื่อดูข้อมูลหรือเริ่มจัดการข้อมูลเด็ก</p>
+          </div>
+
+          <section v-else-if="activeWorkspace === 'kids'" class="inline-workspace-panel">
+            <div class="inline-workspace-header">
+              <div>
+                <p class="eyebrow">รายชื่อในพื้นที่ {{ managerProvince || '...' }}</p>
+                <h2>รายชื่อเด็ก</h2>
+              </div>
+              <button
+                type="button"
+                class="refresh-button"
+                :class="{ 'is-loading': isLoading }"
+                :disabled="isLoading"
+                aria-label="รีเฟรชรายชื่อเด็ก"
+                @click="loadKids"
+              >
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <label class="search-field directory-search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <input v-model="directorySearchTerm" type="search" placeholder="ค้นหาจากชื่อ" />
+            </label>
+
+            <div class="directory-list directory-list--inline">
+              <article v-for="kid in directoryKids" :key="kid.id" class="directory-card">
+                <div class="directory-card-icon directory-card-icon--child">
+                  <i class="bi bi-person-hearts" aria-hidden="true"></i>
+                </div>
+                <div class="directory-card-body">
+                  <div class="directory-card-title">
+                    <h3>{{ kid.full_name }}</h3>
+                    <div class="directory-card-title-actions">
+                      <span class="match-status" :class="kidMatchStatus(kid).className">
+                        {{ kidMatchStatus(kid).label }}
+                      </span>
+                      <button
+                        type="button"
+                        class="icon-action icon-action--edit"
+                        aria-label="แก้ไขข้อมูลเด็ก"
+                        title="แก้ไขข้อมูลเด็ก"
+                        @click="fillFormFromKid(kid)"
+                      >
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-action icon-action--danger"
+                        :disabled="deletingKidId === kid.id"
+                        aria-label="ลบข้อมูลเด็ก"
+                        title="ลบข้อมูลเด็ก"
+                        @click="requestDeleteKid(kid)"
+                      >
+                        <i
+                          class="bi"
+                          :class="deletingKidId === kid.id ? 'bi-hourglass-split' : 'bi-trash'"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                    </div>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>เลขประจำตัวประชาชน</dt>
+                      <dd>{{ kid.thai_id_masked }}</dd>
+                    </div>
+                    <div>
+                      <dt>วันเดือนปีเกิด</dt>
+                      <dd>{{ formatDate(kid.date_of_birth) }}</dd>
+                    </div>
+                    <div>
+                      <dt>เพศ</dt>
+                      <dd>{{ genderLabel(kid.gender) }}</dd>
+                    </div>
+                    <div>
+                      <dt>อาการสำคัญ</dt>
+                      <dd>{{ kid.notable_symptoms || '-' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ที่อยู่</dt>
+                      <dd>
+                        {{ kid.address.subdistrict }}, {{ kid.address.district }},
+                        {{ kid.address.province }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>นักบำบัด</dt>
+                      <dd>{{ kid.assigned_caregiver?.full_name ?? 'ยังไม่จับคู่' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ผู้ดูแลเด็ก</dt>
+                      <dd>{{ villageVolunteerNames(kid) }}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </article>
+
+              <div v-if="kids.length === 0" class="empty-state">ยังไม่มีข้อมูลเด็กในพื้นที่</div>
+              <div v-else-if="directoryKids.length === 0" class="empty-state">
+                ไม่พบชื่อเด็กที่ค้นหา
+              </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeWorkspace === 'caregivers'" class="inline-workspace-panel">
+            <div class="inline-workspace-header">
+              <div>
+                <p class="eyebrow">รายชื่อในพื้นที่ {{ managerProvince || '...' }}</p>
+                <h2>รายชื่อนักกิจกรรมบำบัด</h2>
+              </div>
+              <button
+                type="button"
+                class="refresh-button"
+                :class="{ 'is-loading': isLoadingCaregivers }"
+                :disabled="isLoadingCaregivers"
+                aria-label="รีเฟรชรายชื่อนักกิจกรรมบำบัด"
+                @click="loadCaregivers"
+              >
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <label class="search-field directory-search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <input v-model="directorySearchTerm" type="search" placeholder="ค้นหาจากชื่อ" />
+            </label>
+
+            <div class="directory-list directory-list--inline">
+              <article
+                v-for="caregiver in directoryCaregivers"
+                :key="caregiver.id"
+                class="directory-card"
+              >
+                <div class="directory-card-icon directory-card-icon--therapist">
+                  <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+                </div>
+                <div class="directory-card-body">
+                  <div class="directory-card-title">
+                    <h3>
+                      {{ caregiver.full_name }}
+                      <span
+                        v-if="openSlots(caregiver).length > 0"
+                        class="availability-badge"
+                        title="มีเวลาว่างสำหรับจับคู่"
+                      >
+                        <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                        {{ openSlots(caregiver).length }}
+                      </span>
+                    </h3>
+                    <span class="count-pill">{{ caregiverAssignedCount(caregiver.id) }} คน</span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>สถานพยาบาล</dt>
+                      <dd>{{ caregiver.hospital_or_clinic || '-' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ใบประกอบวิชาชีพ</dt>
+                      <dd>{{ caregiver.license_id || '-' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ที่อยู่</dt>
+                      <dd>
+                        {{ caregiver.address.subdistrict }}, {{ caregiver.address.district }},
+                        {{ caregiver.address.province }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>เวลาว่าง</dt>
+                      <dd>
+                        {{
+                          openSlots(caregiver).length
+                            ? openSlots(caregiver).map(formatSlot).join(', ')
+                            : 'ไม่มีเวลาว่าง'
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div class="provider-stage-summary" aria-label="สถานะการดูแลของนักกิจกรรมบำบัด">
+                    <strong>ดูแลเด็ก {{ caregiverAssignedCount(caregiver.id) }} คน</strong>
+                    <div v-if="caregiverAssignedCount(caregiver.id)" class="provider-stage-list">
+                      <span
+                        v-for="stage in stageSummaryForKids(caregiverAssignedKids(caregiver.id))"
+                        :key="stage.label"
+                        class="match-status"
+                        :class="stage.className"
+                      >
+                        {{ stage.label }} {{ stage.count }}
+                      </span>
+                    </div>
+                    <span v-else class="provider-stage-empty">ยังไม่มีเด็กในความดูแล</span>
+                  </div>
+                </div>
+              </article>
+
+              <div v-if="caregivers.length === 0" class="empty-state">
+                ยังไม่มีนักกิจกรรมบำบัดในพื้นที่
+              </div>
+              <div v-else-if="directoryCaregivers.length === 0" class="empty-state">
+                ไม่พบชื่อนักกิจกรรมบำบัดที่ค้นหา
+              </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeWorkspace === 'volunteers'" class="inline-workspace-panel">
+            <div class="inline-workspace-header">
+              <div>
+                <p class="eyebrow">รายชื่อในพื้นที่ {{ managerProvince || '...' }}</p>
+                <h2>รายชื่อผู้ดูแลเด็ก</h2>
+              </div>
+              <button
+                type="button"
+                class="refresh-button"
+                :class="{ 'is-loading': isLoadingVillageVolunteers }"
+                :disabled="isLoadingVillageVolunteers"
+                aria-label="รีเฟรชรายชื่อผู้ดูแลเด็ก"
+                @click="loadVillageVolunteers"
+              >
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <label class="search-field directory-search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <input v-model="directorySearchTerm" type="search" placeholder="ค้นหาจากชื่อ" />
+            </label>
+
+            <div class="directory-list directory-list--inline">
+              <article
+                v-for="volunteer in directoryVillageVolunteers"
+                :key="volunteer.id"
+                class="directory-card"
+              >
+                <div class="directory-card-icon directory-card-icon--volunteer">
+                  <i class="bi bi-people" aria-hidden="true"></i>
+                </div>
+                <div class="directory-card-body">
+                  <div class="directory-card-title">
+                    <h3>{{ volunteer.full_name }}</h3>
+                    <span class="count-pill"
+                      >{{ villageVolunteerAssignedCount(volunteer.id) }} คน</span
+                    >
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>เลขประจำตัวประชาชน</dt>
+                      <dd>{{ volunteer.thai_id_masked }}</dd>
+                    </div>
+                    <div>
+                      <dt>สถานพยาบาล</dt>
+                      <dd>{{ volunteer.hospital_or_clinic || '-' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ติดต่อ</dt>
+                      <dd>{{ volunteer.phone || volunteer.email || '-' }}</dd>
+                    </div>
+                    <div>
+                      <dt>ที่อยู่</dt>
+                      <dd>
+                        {{ volunteer.address.subdistrict }}, {{ volunteer.address.district }},
+                        {{ volunteer.address.province }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div class="provider-stage-summary" aria-label="สถานะการดูแลของผู้ดูแลเด็ก">
+                    <strong>ดูแลเด็ก {{ villageVolunteerAssignedCount(volunteer.id) }} คน</strong>
+                    <div
+                      v-if="villageVolunteerAssignedCount(volunteer.id)"
+                      class="provider-stage-list"
+                    >
+                      <span
+                        v-for="stage in stageSummaryForKids(
+                          villageVolunteerAssignedKids(volunteer.id),
+                        )"
+                        :key="stage.label"
+                        class="match-status"
+                        :class="stage.className"
+                      >
+                        {{ stage.label }} {{ stage.count }}
+                      </span>
+                    </div>
+                    <span v-else class="provider-stage-empty">ยังไม่มีเด็กในความดูแล</span>
+                  </div>
+                </div>
+              </article>
+
+              <div v-if="villageVolunteers.length === 0" class="empty-state">
+                ยังไม่มีผู้ดูแลเด็กในพื้นที่
+              </div>
+              <div v-else-if="directoryVillageVolunteers.length === 0" class="empty-state">
+                ไม่พบชื่อผู้ดูแลเด็กที่ค้นหา
+              </div>
+            </div>
+          </section>
+
+          <section v-else-if="activeWorkspace === 'child-form'" class="inline-workspace-panel">
+            <div class="inline-workspace-header">
+              <div>
+                <p class="eyebrow">การจัดการข้อมูลเด็ก</p>
+                <h2>{{ editingKidId ? 'แก้ไขข้อมูลเด็ก' : 'เพิ่มรายชื่อเด็ก' }}</h2>
+              </div>
+            </div>
+
+            <form class="kid-form kid-form--inline" @submit.prevent="submitForm">
+              <fieldset>
+                <legend>ข้อมูลเด็ก</legend>
+
+                <label class="wide-field">
+                  <span>ชื่อ-นามสกุลเด็ก <strong class="required-marker">*</strong></span>
+                  <input
+                    v-model="form.full_name"
+                    required
+                    maxlength="160"
+                    autocomplete="off"
+                    placeholder="กรอกชื่อ-นามสกุล"
+                  />
+                </label>
+
+                <label>
+                  <span>วันเดือนปีเกิด <strong class="required-marker">*</strong></span>
+                  <input v-model="form.date_of_birth" type="date" required autocomplete="off" />
+                </label>
+
+                <label>
+                  <span>เพศ <strong class="required-marker">*</strong></span>
+                  <select v-model="form.gender" required>
+                    <option value="" disabled>เลือกเพศ</option>
+                    <option
+                      v-for="option in genderOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="wide-field">
+                  <span>เลขประจำตัวประชาชนเด็ก <strong class="required-marker">*</strong></span>
+                  <input
+                    v-model="form.thai_id"
+                    inputmode="numeric"
+                    maxlength="13"
+                    minlength="13"
+                    pattern="[0-9]{13}"
+                    :required="!editingKidId"
+                    :disabled="Boolean(editingKidId)"
+                    autocomplete="off"
+                    :placeholder="editingKidId ? 'ไม่แก้ไขเลขประชาชนจากหน้านี้' : 'กรอกเลข 13 หลัก'"
+                    @input="updateThaiId"
+                  />
+                </label>
+
+                <label class="wide-field">
+                  <span>อาการสำคัญ</span>
+                  <textarea
+                    v-model="form.notable_symptoms"
+                    maxlength="2000"
+                    rows="4"
+                    placeholder="ระบุอาการสำคัญหรือข้อสังเกตที่ต้องติดตาม"
+                  ></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset>
+                <legend>ที่อยู่</legend>
+
+                <label>
+                  <span>บ้านเลขที่</span>
+                  <input v-model="form.house_no" maxlength="60" />
+                </label>
+
+                <label>
+                  <span>หมู่ที่</span>
+                  <input v-model="form.village_no" maxlength="60" />
+                </label>
+
+                <label class="wide-field">
+                  <span>ถนน</span>
+                  <input v-model="form.road" maxlength="160" />
+                </label>
+
+                <label>
+                  <span>จังหวัด <strong class="required-marker">*</strong></span>
+                  <input :value="managerProvince" required readonly />
+                </label>
+
+                <label>
+                  <span>อำเภอ/เขต <strong class="required-marker">*</strong></span>
+                  <select
+                    v-model="form.district_id"
+                    required
+                    :disabled="!selectedProvince"
+                    @change="resetSubdistrictSelection"
+                  >
+                    <option value="" disabled>เลือกอำเภอ/เขต</option>
+                    <option
+                      v-for="district in districtOptions"
+                      :key="district.id"
+                      :value="String(district.id)"
+                    >
+                      {{ district.name_in_thai }}
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>ตำบล/แขวง <strong class="required-marker">*</strong></span>
+                  <select v-model="form.subdistrict_id" required :disabled="!selectedDistrict">
+                    <option value="" disabled>เลือกตำบล/แขวง</option>
+                    <option
+                      v-for="subdistrict in subdistrictOptions"
+                      :key="subdistrict.id"
+                      :value="String(subdistrict.id)"
+                    >
+                      {{ subdistrict.name_in_thai }}
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>รหัสไปรษณีย์ <strong class="required-marker">*</strong></span>
+                  <input
+                    :value="postalCode"
+                    required
+                    inputmode="numeric"
+                    minlength="5"
+                    maxlength="10"
+                    readonly
+                    placeholder="เลือกตำบล/แขวงก่อน"
+                  />
+                </label>
+              </fieldset>
+
+              <div class="form-actions">
+                <button class="secondary-action" type="button" @click="cancelKidModal">
+                  ยกเลิก
+                </button>
+                <button class="primary-action" type="submit" :disabled="isSubmitting">
+                  {{
+                    isSubmitting
+                      ? 'กำลังบันทึก...'
+                      : editingKidId
+                        ? 'บันทึกการแก้ไข'
+                        : 'เพิ่มรายชื่อเด็ก'
+                  }}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <div v-else class="workspace-empty-state workspace-empty-state--compact">
+            <i class="bi bi-diagram-3" aria-hidden="true"></i>
+            <h2>จับคู่เด็กกับผู้ให้บริการ</h2>
+            <p>เลือกเด็กจากรายการด้านล่าง แล้วจับคู่นักกิจกรรมบำบัดและผู้ดูแลเด็ก</p>
           </div>
         </div>
       </section>
@@ -750,359 +1299,398 @@ onMounted(async () => {
       <p v-if="errorMessage" class="form-alert form-alert--error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="form-alert form-alert--success">{{ successMessage }}</p>
 
-      <div id="matching-workspace" class="matching-workspace">
-        <section class="matching-panel child-selector-panel" aria-label="เลือกเด็กเพื่อจับคู่">
-          <div class="list-header">
+      <div
+        v-if="activeWorkspace === 'matching'"
+        class="matching-modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="matching-modal-title"
+        @click.self="closeMatchingWorkspace"
+      >
+        <section class="matching-modal">
+          <header class="matching-modal-header">
             <div>
-              <h2>เด็กในพื้นที่</h2>
-              <p>เลือกเด็ก 1 คน แล้วจัดทีมนักบำบัดและผู้ดูแลเด็กในแผงด้านขวา</p>
+              <p class="eyebrow">การจัดการข้อมูลเด็ก</p>
+              <h2 id="matching-modal-title">จับคู่เด็กกับผู้ให้บริการ</h2>
             </div>
             <button
               type="button"
-              class="refresh-button"
-              :class="{ 'is-loading': isLoading }"
-              :disabled="isLoading"
-              aria-label="รีเฟรชรายชื่อเด็ก"
-              @click="loadKids"
+              class="modal-close-button"
+              aria-label="ปิดหน้าต่างจับคู่เด็ก"
+              @click="closeMatchingWorkspace"
             >
-              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
-          </div>
+          </header>
 
-          <label class="search-field">
-            <i class="bi bi-search" aria-hidden="true"></i>
-            <input v-model="childSearchTerm" type="search" placeholder="ค้นหาชื่อเด็ก" />
-          </label>
-
-          <div v-if="kids.length === 0" class="empty-state">
-            ยังไม่มีข้อมูลเด็กในพื้นที่รับผิดชอบ
-          </div>
-          <div v-else-if="filteredKids.length === 0" class="empty-state empty-state--compact">
-            ไม่พบชื่อเด็กที่ค้นหา
-          </div>
-
-          <div v-else class="child-card-list">
-            <article
-              v-for="kid in filteredKids"
-              :key="kid.id"
-              class="child-match-card"
-              :class="{ 'is-selected': selectedKidId === kid.id }"
-              @click="selectedKidId = kid.id"
-            >
-              <div class="child-card-main">
-                <h3>{{ kid.full_name }}</h3>
-                <span class="match-status" :class="kidMatchStatus(kid).className">
-                  {{ kidMatchStatus(kid).label }}
-                </span>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="matching-panel assignment-panel" aria-label="จัดทีมดูแลเด็ก">
-          <div v-if="!selectedKid" class="empty-selection">
-            <i class="bi bi-diagram-3" aria-hidden="true"></i>
-            <h3>เลือกเด็กจากรายการด้านซ้าย</h3>
-            <p>หลังเลือกแล้วจะแสดงตัวเลือกสำหรับจับคู่ในแผงนี้</p>
-          </div>
-
-          <template v-else>
-            <div class="assignment-summary">
-              <div class="assignment-summary-main">
-                <span class="assignment-summary-label">เด็กที่เลือก</span>
-                <strong>{{ selectedKid.full_name }}</strong>
-                <small>{{ selectedKidAddress() }}</small>
-              </div>
-              <span class="match-status" :class="kidMatchStatus(selectedKid).className">
-                {{ kidMatchStatus(selectedKid).label }}
-              </span>
-              <div class="assignment-summary-meta">
-                <span>
-                  <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
-                  {{ selectedKid.assigned_caregiver?.full_name ?? 'ยังไม่ได้จับคู่' }}
-                </span>
-                <span>
-                  <i class="bi bi-people" aria-hidden="true"></i>
-                  {{ villageVolunteerNames(selectedKid) }}
-                </span>
-              </div>
-            </div>
-
-            <section class="resource-section" aria-labelledby="caregiver-match-title">
-              <div class="resource-heading">
+          <div id="matching-workspace" class="matching-workspace">
+            <section class="matching-panel child-selector-panel" aria-label="เลือกเด็กเพื่อจับคู่">
+              <div class="list-header">
                 <div>
-                  <h3 id="caregiver-match-title">เลือกนักบำบัดและเวลาว่าง</h3>
-                  <p>ต้องเลือกเวลาว่างก่อนกดจับคู่ เพื่อให้การนัดหมายผูกกับ session ได้ถูกต้อง</p>
+                  <h2>เด็กในพื้นที่</h2>
+                  <p>เลือกเด็ก 1 คน แล้วจัดทีมนักบำบัดและผู้ดูแลเด็กในแผงด้านขวา</p>
                 </div>
-                <div class="resource-heading-actions">
-                  <button
-                    type="button"
-                    class="section-toggle-button"
-                    :aria-expanded="isCaregiverMatchOpen"
-                    :aria-label="
-                      isCaregiverMatchOpen
-                        ? 'ซ่อนรายชื่อนักบำบัดและเวลาว่าง'
-                        : 'แสดงรายชื่อนักบำบัดและเวลาว่าง'
-                    "
-                    aria-controls="caregiver-match-body"
-                    @click="isCaregiverMatchOpen = !isCaregiverMatchOpen"
-                  >
-                    <i
-                      class="bi"
-                      :class="isCaregiverMatchOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
-                      aria-hidden="true"
-                    ></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="refresh-button"
-                    :class="{ 'is-loading': isLoadingCaregivers }"
-                    :disabled="isLoadingCaregivers"
-                    aria-label="รีเฟรชรายชื่อนักบำบัด"
-                    @click="loadCaregivers"
-                  >
-                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  class="refresh-button"
+                  :class="{ 'is-loading': isLoading }"
+                  :disabled="isLoading"
+                  aria-label="รีเฟรชรายชื่อเด็ก"
+                  @click="loadKids"
+                >
+                  <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                </button>
               </div>
 
-              <div v-if="isCaregiverMatchOpen" id="caregiver-match-body" class="resource-body">
-                <label class="search-field search-field--compact">
-                  <i class="bi bi-search" aria-hidden="true"></i>
-                  <input
-                    v-model="caregiverSearchTerm"
-                    type="search"
-                    placeholder="ค้นหาชื่อนักบำบัด"
-                  />
-                </label>
+              <label class="search-field">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input v-model="childSearchTerm" type="search" placeholder="ค้นหาชื่อเด็ก" />
+              </label>
 
-                <div v-if="caregivers.length === 0" class="empty-state empty-state--compact">
-                  ยังไม่มีนักบำบัดที่ลงทะเบียนในจังหวัดนี้
-                </div>
-                <div
-                  v-else-if="filteredCaregivers.length === 0"
-                  class="empty-state empty-state--compact"
+              <div v-if="kids.length === 0" class="empty-state">
+                ยังไม่มีข้อมูลเด็กในพื้นที่รับผิดชอบ
+              </div>
+              <div v-else-if="filteredKids.length === 0" class="empty-state empty-state--compact">
+                ไม่พบชื่อเด็กที่ค้นหา
+              </div>
+
+              <div v-else class="child-card-list">
+                <article
+                  v-for="kid in filteredKids"
+                  :key="kid.id"
+                  class="child-match-card"
+                  :class="{ 'is-selected': selectedKidId === kid.id }"
+                  @click="selectedKidId = kid.id"
                 >
-                  ไม่พบชื่อนักบำบัดที่ค้นหา
-                </div>
-
-                <div v-else class="resource-list">
-                  <article
-                    v-for="caregiver in filteredCaregivers"
-                    :key="caregiver.id"
-                    class="resource-card"
-                  >
-                    <div class="resource-card-main">
-                      <div>
-                        <h4 class="therapist-name">
-                          <span>{{ caregiver.full_name }}</span>
-                          <span
-                            v-if="openSlots(caregiver).length > 0"
-                            class="availability-badge"
-                            title="มีเวลาว่างสำหรับจับคู่"
-                          >
-                            <i class="bi bi-calendar-check" aria-hidden="true"></i>
-                            {{ openSlots(caregiver).length }}
-                          </span>
-                        </h4>
-                        <p>{{ caregiver.hospital_or_clinic || 'ยังไม่ระบุสถานพยาบาล' }}</p>
-                      </div>
-                      <span class="count-pill">{{ caregiverAssignedCount(caregiver.id) }}</span>
-                    </div>
-
-                    <div class="resource-controls">
-                      <select
-                        v-model="selectedSlotByCaregiverId[caregiver.id]"
-                        class="slot-select"
-                        :disabled="openSlots(caregiver).length === 0"
-                      >
-                        <option value="">
-                          {{ openSlots(caregiver).length === 0 ? 'ไม่มีเวลาว่าง' : 'เลือกเวลา' }}
-                        </option>
-                        <option
-                          v-for="slot in openSlots(caregiver)"
-                          :key="slot.id"
-                          :value="slot.id"
-                        >
-                          {{ formatSlot(slot) }}
-                        </option>
-                      </select>
-                      <button
-                        type="button"
-                        class="assign-button"
-                        :disabled="
-                          !selectedSlotByCaregiverId[caregiver.id] ||
-                          assigningCaregiverId === caregiver.id
-                        "
-                        @click="assignSelectedKid(caregiver.id)"
-                      >
-                        {{ assigningCaregiverId === caregiver.id ? 'กำลังจับคู่' : 'จับคู่' }}
-                      </button>
-                      <button
-                        type="button"
-                        class="icon-toggle-button"
-                        :aria-expanded="expandedCaregiverIds.has(caregiver.id)"
-                        :aria-label="
-                          expandedCaregiverIds.has(caregiver.id)
-                            ? 'ซ่อนรายละเอียดนักบำบัด'
-                            : 'ดูรายละเอียดนักบำบัด'
-                        "
-                        @click="toggleCaregiverDetails(caregiver.id)"
-                      ></button>
-                    </div>
-
-                    <div v-if="expandedCaregiverIds.has(caregiver.id)" class="resource-detail">
-                      <span><strong>ใบประกอบวิชาชีพ:</strong> {{ caregiver.license_id }}</span>
-                      <span>
-                        <strong>ที่อยู่:</strong>
-                        {{ caregiver.address.subdistrict }}, {{ caregiver.address.district }}
-                      </span>
-                      <span v-if="caregiver.availability_slots.length">
-                        <strong>เวลาทั้งหมด:</strong>
-                        {{ caregiver.availability_slots.map(formatSlot).join(', ') }}
-                      </span>
-                    </div>
-                  </article>
-                </div>
+                  <div class="child-card-main">
+                    <h3>{{ kid.full_name }}</h3>
+                    <span class="match-status" :class="kidMatchStatus(kid).className">
+                      {{ kidMatchStatus(kid).label }}
+                    </span>
+                  </div>
+                </article>
               </div>
             </section>
 
-            <section class="resource-section" aria-labelledby="volunteer-match-title">
-              <div class="resource-heading">
-                <div>
-                  <h3 id="volunteer-match-title">เพิ่มผู้ดูแลเด็ก</h3>
-                  <p>เด็ก 1 คนสามารถมีผู้ดูแลเด็กได้หลายคน เพื่อช่วยติดตาม Home Program</p>
-                </div>
-                <div class="resource-heading-actions">
-                  <button
-                    type="button"
-                    class="section-toggle-button"
-                    :aria-expanded="isVillageVolunteerMatchOpen"
-                    :aria-label="
-                      isVillageVolunteerMatchOpen
-                        ? 'ซ่อนรายชื่อผู้ดูแลเด็ก'
-                        : 'แสดงรายชื่อผู้ดูแลเด็ก'
-                    "
-                    aria-controls="volunteer-match-body"
-                    @click="isVillageVolunteerMatchOpen = !isVillageVolunteerMatchOpen"
-                  >
-                    <i
-                      class="bi"
-                      :class="isVillageVolunteerMatchOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
-                      aria-hidden="true"
-                    ></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="refresh-button"
-                    :class="{ 'is-loading': isLoadingVillageVolunteers }"
-                    :disabled="isLoadingVillageVolunteers"
-                    aria-label="รีเฟรชรายชื่อผู้ดูแลเด็ก"
-                    @click="loadVillageVolunteers"
-                  >
-                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                  </button>
-                </div>
+            <section class="matching-panel assignment-panel" aria-label="จัดทีมดูแลเด็ก">
+              <div v-if="!selectedKid" class="empty-selection">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                <h3>เลือกเด็กจากรายการด้านซ้าย</h3>
+                <p>หลังเลือกแล้วจะแสดงตัวเลือกสำหรับจับคู่ในแผงนี้</p>
               </div>
 
-              <div
-                v-if="isVillageVolunteerMatchOpen"
-                id="volunteer-match-body"
-                class="resource-body"
-              >
-                <label class="search-field search-field--compact">
-                  <i class="bi bi-search" aria-hidden="true"></i>
-                  <input
-                    v-model="volunteerSearchTerm"
-                    type="search"
-                    placeholder="ค้นหาชื่อผู้ดูแลเด็ก"
-                  />
-                </label>
-
-                <div v-if="villageVolunteers.length === 0" class="empty-state empty-state--compact">
-                  ยังไม่มีผู้ดูแลเด็กที่ลงทะเบียนในจังหวัดนี้
-                </div>
-                <div
-                  v-else-if="filteredVillageVolunteers.length === 0"
-                  class="empty-state empty-state--compact"
-                >
-                  ไม่พบชื่อผู้ดูแลเด็กที่ค้นหา
+              <template v-else>
+                <div class="assignment-summary">
+                  <div class="assignment-summary-main">
+                    <span class="assignment-summary-label">เด็กที่เลือก</span>
+                    <strong>{{ selectedKid.full_name }}</strong>
+                    <small>{{ selectedKidAddress() }}</small>
+                  </div>
+                  <span class="match-status" :class="kidMatchStatus(selectedKid).className">
+                    {{ kidMatchStatus(selectedKid).label }}
+                  </span>
+                  <div class="assignment-summary-meta">
+                    <span>
+                      <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+                      {{ selectedKid.assigned_caregiver?.full_name ?? 'ยังไม่ได้จับคู่' }}
+                    </span>
+                    <span>
+                      <i class="bi bi-people" aria-hidden="true"></i>
+                      {{ villageVolunteerNames(selectedKid) }}
+                    </span>
+                  </div>
                 </div>
 
-                <div v-else class="resource-list resource-list--volunteers">
-                  <article
-                    v-for="volunteer in filteredVillageVolunteers"
-                    :key="volunteer.id"
-                    class="resource-card"
-                    :class="{
-                      'resource-card--assigned': isVillageVolunteerAssignedToSelectedKid(
-                        volunteer.id,
-                      ),
-                    }"
-                  >
-                    <div class="resource-card-main">
-                      <div>
-                        <h4>{{ volunteer.full_name }}</h4>
-                        <p>{{ volunteer.phone || volunteer.email || 'ยังไม่ระบุข้อมูลติดต่อ' }}</p>
-                      </div>
-                      <span class="count-pill">{{
-                        villageVolunteerAssignedCount(volunteer.id)
-                      }}</span>
+                <section class="resource-section" aria-labelledby="caregiver-match-title">
+                  <div class="resource-heading">
+                    <div>
+                      <h3 id="caregiver-match-title">เลือกนักบำบัดและเวลาว่าง</h3>
+                      <p>
+                        ต้องเลือกเวลาว่างก่อนกดจับคู่ เพื่อให้การนัดหมายผูกกับ session ได้ถูกต้อง
+                      </p>
                     </div>
-
-                    <div class="resource-controls">
-                      <span
-                        v-if="isVillageVolunteerAssignedToSelectedKid(volunteer.id)"
-                        class="status-pill status-pill--success"
-                      >
-                        จับคู่แล้ว
-                      </span>
+                    <div class="resource-heading-actions">
                       <button
-                        v-else
                         type="button"
-                        class="assign-button"
-                        :disabled="assigningVillageVolunteerId === volunteer.id"
-                        @click="assignSelectedKidToVillageVolunteer(volunteer.id)"
+                        class="section-toggle-button"
+                        :aria-expanded="isCaregiverMatchOpen"
+                        :aria-label="
+                          isCaregiverMatchOpen
+                            ? 'ซ่อนรายชื่อนักบำบัดและเวลาว่าง'
+                            : 'แสดงรายชื่อนักบำบัดและเวลาว่าง'
+                        "
+                        aria-controls="caregiver-match-body"
+                        @click="isCaregiverMatchOpen = !isCaregiverMatchOpen"
                       >
-                        {{
-                          assigningVillageVolunteerId === volunteer.id ? 'กำลังจับคู่' : 'จับคู่'
-                        }}
+                        <i
+                          class="bi"
+                          :class="isCaregiverMatchOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                          aria-hidden="true"
+                        ></i>
                       </button>
                       <button
                         type="button"
-                        class="icon-toggle-button"
-                        :aria-expanded="expandedVillageVolunteerIds.has(volunteer.id)"
-                        :aria-label="
-                          expandedVillageVolunteerIds.has(volunteer.id)
-                            ? 'ซ่อนรายละเอียดผู้ดูแลเด็ก'
-                            : 'ดูรายละเอียดผู้ดูแลเด็ก'
-                        "
-                        @click="toggleVillageVolunteerDetails(volunteer.id)"
-                      ></button>
+                        class="refresh-button"
+                        :class="{ 'is-loading': isLoadingCaregivers }"
+                        :disabled="isLoadingCaregivers"
+                        aria-label="รีเฟรชรายชื่อนักบำบัด"
+                        @click="loadCaregivers"
+                      >
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                      </button>
                     </div>
+                  </div>
+
+                  <div v-if="isCaregiverMatchOpen" id="caregiver-match-body" class="resource-body">
+                    <label class="search-field search-field--compact">
+                      <i class="bi bi-search" aria-hidden="true"></i>
+                      <input
+                        v-model="caregiverSearchTerm"
+                        type="search"
+                        placeholder="ค้นหาชื่อนักบำบัด"
+                      />
+                    </label>
+
+                    <div v-if="caregivers.length === 0" class="empty-state empty-state--compact">
+                      ยังไม่มีนักบำบัดที่ลงทะเบียนในจังหวัดนี้
+                    </div>
+                    <div
+                      v-else-if="filteredCaregivers.length === 0"
+                      class="empty-state empty-state--compact"
+                    >
+                      ไม่พบชื่อนักบำบัดที่ค้นหา
+                    </div>
+
+                    <div v-else class="resource-list">
+                      <article
+                        v-for="caregiver in filteredCaregivers"
+                        :key="caregiver.id"
+                        class="resource-card"
+                      >
+                        <div class="resource-card-main">
+                          <div>
+                            <h4 class="therapist-name">
+                              <span>{{ caregiver.full_name }}</span>
+                              <span
+                                v-if="openSlots(caregiver).length > 0"
+                                class="availability-badge"
+                                title="มีเวลาว่างสำหรับจับคู่"
+                              >
+                                <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                                {{ openSlots(caregiver).length }}
+                              </span>
+                            </h4>
+                            <p>{{ caregiver.hospital_or_clinic || 'ยังไม่ระบุสถานพยาบาล' }}</p>
+                          </div>
+                          <span class="count-pill">{{ caregiverAssignedCount(caregiver.id) }}</span>
+                        </div>
+
+                        <div class="resource-controls">
+                          <select
+                            v-model="selectedSlotByCaregiverId[caregiver.id]"
+                            class="slot-select"
+                            :disabled="openSlots(caregiver).length === 0"
+                          >
+                            <option value="">
+                              {{
+                                openSlots(caregiver).length === 0 ? 'ไม่มีเวลาว่าง' : 'เลือกเวลา'
+                              }}
+                            </option>
+                            <option
+                              v-for="slot in openSlots(caregiver)"
+                              :key="slot.id"
+                              :value="slot.id"
+                            >
+                              {{ formatSlot(slot) }}
+                            </option>
+                          </select>
+                          <button
+                            type="button"
+                            class="assign-button"
+                            :disabled="
+                              !selectedSlotByCaregiverId[caregiver.id] ||
+                              assigningCaregiverId === caregiver.id
+                            "
+                            @click="assignSelectedKid(caregiver.id)"
+                          >
+                            {{ assigningCaregiverId === caregiver.id ? 'กำลังจับคู่' : 'จับคู่' }}
+                          </button>
+                          <button
+                            type="button"
+                            class="icon-toggle-button"
+                            :aria-expanded="expandedCaregiverIds.has(caregiver.id)"
+                            :aria-label="
+                              expandedCaregiverIds.has(caregiver.id)
+                                ? 'ซ่อนรายละเอียดนักบำบัด'
+                                : 'ดูรายละเอียดนักบำบัด'
+                            "
+                            @click="toggleCaregiverDetails(caregiver.id)"
+                          ></button>
+                        </div>
+
+                        <div v-if="expandedCaregiverIds.has(caregiver.id)" class="resource-detail">
+                          <span><strong>ใบประกอบวิชาชีพ:</strong> {{ caregiver.license_id }}</span>
+                          <span>
+                            <strong>ที่อยู่:</strong>
+                            {{ caregiver.address.subdistrict }}, {{ caregiver.address.district }}
+                          </span>
+                          <span v-if="caregiver.availability_slots.length">
+                            <strong>เวลาทั้งหมด:</strong>
+                            {{ caregiver.availability_slots.map(formatSlot).join(', ') }}
+                          </span>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="resource-section" aria-labelledby="volunteer-match-title">
+                  <div class="resource-heading">
+                    <div>
+                      <h3 id="volunteer-match-title">เพิ่มผู้ดูแลเด็ก</h3>
+                      <p>เด็ก 1 คนสามารถมีผู้ดูแลเด็กได้หลายคน เพื่อช่วยติดตาม Home Program</p>
+                    </div>
+                    <div class="resource-heading-actions">
+                      <button
+                        type="button"
+                        class="section-toggle-button"
+                        :aria-expanded="isVillageVolunteerMatchOpen"
+                        :aria-label="
+                          isVillageVolunteerMatchOpen
+                            ? 'ซ่อนรายชื่อผู้ดูแลเด็ก'
+                            : 'แสดงรายชื่อผู้ดูแลเด็ก'
+                        "
+                        aria-controls="volunteer-match-body"
+                        @click="isVillageVolunteerMatchOpen = !isVillageVolunteerMatchOpen"
+                      >
+                        <i
+                          class="bi"
+                          :class="isVillageVolunteerMatchOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="refresh-button"
+                        :class="{ 'is-loading': isLoadingVillageVolunteers }"
+                        :disabled="isLoadingVillageVolunteers"
+                        aria-label="รีเฟรชรายชื่อผู้ดูแลเด็ก"
+                        @click="loadVillageVolunteers"
+                      >
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="isVillageVolunteerMatchOpen"
+                    id="volunteer-match-body"
+                    class="resource-body"
+                  >
+                    <label class="search-field search-field--compact">
+                      <i class="bi bi-search" aria-hidden="true"></i>
+                      <input
+                        v-model="volunteerSearchTerm"
+                        type="search"
+                        placeholder="ค้นหาชื่อผู้ดูแลเด็ก"
+                      />
+                    </label>
 
                     <div
-                      v-if="expandedVillageVolunteerIds.has(volunteer.id)"
-                      class="resource-detail"
+                      v-if="villageVolunteers.length === 0"
+                      class="empty-state empty-state--compact"
                     >
-                      <span>
-                        <strong>เลขประจำตัวประชาชน:</strong> {{ volunteer.thai_id_masked }}
-                      </span>
-                      <span><strong>สถานพยาบาล:</strong> {{ volunteer.hospital_or_clinic }}</span>
-                      <span v-if="volunteer.license_id">
-                        <strong>รหัส/เลขประจำตัว:</strong> {{ volunteer.license_id }}
-                      </span>
-                      <span>
-                        <strong>ที่อยู่:</strong>
-                        {{ volunteer.address.subdistrict }}, {{ volunteer.address.district }},
-                        {{ volunteer.address.province }}
-                      </span>
+                      ยังไม่มีผู้ดูแลเด็กที่ลงทะเบียนในจังหวัดนี้
                     </div>
-                  </article>
-                </div>
-              </div>
+                    <div
+                      v-else-if="filteredVillageVolunteers.length === 0"
+                      class="empty-state empty-state--compact"
+                    >
+                      ไม่พบชื่อผู้ดูแลเด็กที่ค้นหา
+                    </div>
+
+                    <div v-else class="resource-list resource-list--volunteers">
+                      <article
+                        v-for="volunteer in filteredVillageVolunteers"
+                        :key="volunteer.id"
+                        class="resource-card"
+                        :class="{
+                          'resource-card--assigned': isVillageVolunteerAssignedToSelectedKid(
+                            volunteer.id,
+                          ),
+                        }"
+                      >
+                        <div class="resource-card-main">
+                          <div>
+                            <h4>{{ volunteer.full_name }}</h4>
+                            <p>
+                              {{ volunteer.phone || volunteer.email || 'ยังไม่ระบุข้อมูลติดต่อ' }}
+                            </p>
+                          </div>
+                          <span class="count-pill">{{
+                            villageVolunteerAssignedCount(volunteer.id)
+                          }}</span>
+                        </div>
+
+                        <div class="resource-controls">
+                          <span
+                            v-if="isVillageVolunteerAssignedToSelectedKid(volunteer.id)"
+                            class="status-pill status-pill--success"
+                          >
+                            จับคู่แล้ว
+                          </span>
+                          <button
+                            v-else
+                            type="button"
+                            class="assign-button"
+                            :disabled="assigningVillageVolunteerId === volunteer.id"
+                            @click="assignSelectedKidToVillageVolunteer(volunteer.id)"
+                          >
+                            {{
+                              assigningVillageVolunteerId === volunteer.id
+                                ? 'กำลังจับคู่'
+                                : 'จับคู่'
+                            }}
+                          </button>
+                          <button
+                            type="button"
+                            class="icon-toggle-button"
+                            :aria-expanded="expandedVillageVolunteerIds.has(volunteer.id)"
+                            :aria-label="
+                              expandedVillageVolunteerIds.has(volunteer.id)
+                                ? 'ซ่อนรายละเอียดผู้ดูแลเด็ก'
+                                : 'ดูรายละเอียดผู้ดูแลเด็ก'
+                            "
+                            @click="toggleVillageVolunteerDetails(volunteer.id)"
+                          ></button>
+                        </div>
+
+                        <div
+                          v-if="expandedVillageVolunteerIds.has(volunteer.id)"
+                          class="resource-detail"
+                        >
+                          <span>
+                            <strong>เลขประจำตัวประชาชน:</strong> {{ volunteer.thai_id_masked }}
+                          </span>
+                          <span
+                            ><strong>สถานพยาบาล:</strong> {{ volunteer.hospital_or_clinic }}</span
+                          >
+                          <span v-if="volunteer.license_id">
+                            <strong>รหัส/เลขประจำตัว:</strong> {{ volunteer.license_id }}
+                          </span>
+                          <span>
+                            <strong>ที่อยู่:</strong>
+                            {{ volunteer.address.subdistrict }}, {{ volunteer.address.district }},
+                            {{ volunteer.address.province }}
+                          </span>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                </section>
+              </template>
             </section>
-          </template>
+          </div>
         </section>
       </div>
     </section>
@@ -1177,6 +1765,16 @@ onMounted(async () => {
                 :placeholder="editingKidId ? 'ไม่แก้ไขเลขประชาชนจากหน้านี้' : 'กรอกเลข 13 หลัก'"
                 @input="updateThaiId"
               />
+            </label>
+
+            <label class="wide-field">
+              <span>อาการสำคัญ</span>
+              <textarea
+                v-model="form.notable_symptoms"
+                maxlength="2000"
+                rows="4"
+                placeholder="ระบุอาการสำคัญหรือข้อสังเกตที่ต้องติดตาม"
+              ></textarea>
             </label>
           </fieldset>
 
@@ -1349,6 +1947,10 @@ onMounted(async () => {
                   <dd>{{ genderLabel(kid.gender) }}</dd>
                 </div>
                 <div>
+                  <dt>อาการสำคัญ</dt>
+                  <dd>{{ kid.notable_symptoms || '-' }}</dd>
+                </div>
+                <div>
                   <dt>ที่อยู่</dt>
                   <dd>
                     {{ kid.address.subdistrict }}, {{ kid.address.district }},
@@ -1395,7 +1997,7 @@ onMounted(async () => {
                     {{ openSlots(caregiver).length }}
                   </span>
                 </h3>
-                <span class="count-pill">{{ caregiverAssignedCount(caregiver.id) }}</span>
+                <span class="count-pill">{{ caregiverAssignedCount(caregiver.id) }} คน</span>
               </div>
               <dl>
                 <div>
@@ -1424,6 +2026,20 @@ onMounted(async () => {
                   </dd>
                 </div>
               </dl>
+              <div class="provider-stage-summary" aria-label="สถานะการดูแลของนักกิจกรรมบำบัด">
+                <strong>ดูแลเด็ก {{ caregiverAssignedCount(caregiver.id) }} คน</strong>
+                <div v-if="caregiverAssignedCount(caregiver.id)" class="provider-stage-list">
+                  <span
+                    v-for="stage in stageSummaryForKids(caregiverAssignedKids(caregiver.id))"
+                    :key="stage.label"
+                    class="match-status"
+                    :class="stage.className"
+                  >
+                    {{ stage.label }} {{ stage.count }}
+                  </span>
+                </div>
+                <span v-else class="provider-stage-empty">ยังไม่มีเด็กในความดูแล</span>
+              </div>
             </div>
           </article>
 
@@ -1447,7 +2063,7 @@ onMounted(async () => {
             <div class="directory-card-body">
               <div class="directory-card-title">
                 <h3>{{ volunteer.full_name }}</h3>
-                <span class="count-pill">{{ villageVolunteerAssignedCount(volunteer.id) }}</span>
+                <span class="count-pill">{{ villageVolunteerAssignedCount(volunteer.id) }} คน</span>
               </div>
               <dl>
                 <div>
@@ -1470,6 +2086,20 @@ onMounted(async () => {
                   </dd>
                 </div>
               </dl>
+              <div class="provider-stage-summary" aria-label="สถานะการดูแลของผู้ดูแลเด็ก">
+                <strong>ดูแลเด็ก {{ villageVolunteerAssignedCount(volunteer.id) }} คน</strong>
+                <div v-if="villageVolunteerAssignedCount(volunteer.id)" class="provider-stage-list">
+                  <span
+                    v-for="stage in stageSummaryForKids(villageVolunteerAssignedKids(volunteer.id))"
+                    :key="stage.label"
+                    class="match-status"
+                    :class="stage.className"
+                  >
+                    {{ stage.label }} {{ stage.count }}
+                  </span>
+                </div>
+                <span v-else class="provider-stage-empty">ยังไม่มีเด็กในความดูแล</span>
+              </div>
             </div>
           </article>
 
@@ -1663,21 +2293,206 @@ h2 {
 
 .command-center {
   display: grid;
+  grid-template-columns: minmax(15rem, 0.32fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
   margin-top: 1.25rem;
 }
 
+.workspace-menu {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid rgb(219 231 245 / 0.92);
+  border-radius: var(--radius-panel);
+  padding: 0.9rem;
+  background: var(--app-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.workspace-menu-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.workspace-menu-group + .workspace-menu-group {
+  border-top: 1px solid rgb(219 231 245 / 0.8);
+  padding-top: 0.75rem;
+}
+
+.workspace-menu-group p {
+  margin: 0 0 0.1rem;
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-menu-button {
+  display: grid;
+  grid-template-columns: 2.15rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  padding: 0.35rem 0.55rem;
+  color: var(--color-text);
+  background: transparent;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.workspace-menu-button i {
+  display: inline-grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.1);
+}
+
+.workspace-menu-button span {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.workspace-menu-button:hover,
+.workspace-menu-button:focus-visible,
+.workspace-menu-button.is-active {
+  transform: translateY(-1px);
+  border-color: rgb(59 130 246 / 0.28);
+  background: rgb(59 130 246 / 0.07);
+  outline: none;
+}
+
+.workspace-menu-button.is-active i {
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
 .command-section {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 18rem;
   border: 1px solid rgb(219 231 245 / 0.92);
   border-radius: var(--radius-panel);
   padding: 1rem;
-  background: rgb(255 255 255 / 0.9);
+  background: var(--app-surface);
   box-shadow: var(--shadow-soft);
+}
+
+.workspace-empty-state {
+  display: grid;
+  min-height: 16rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.55rem;
+  border: 1px dashed rgb(96 165 250 / 0.35);
+  border-radius: 0.9rem;
+  padding: 2rem;
+  color: var(--color-muted);
+  text-align: center;
+  background:
+    linear-gradient(135deg, rgb(59 130 246 / 0.06), transparent 58%), var(--app-surface-soft);
+}
+
+.workspace-empty-state--compact {
+  min-height: 10rem;
+}
+
+.workspace-empty-state i {
+  display: inline-grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.1);
+  font-size: 1.35rem;
+}
+
+.workspace-empty-state h2,
+.workspace-empty-state p {
+  margin: 0;
+}
+
+.workspace-empty-state h2 {
+  color: var(--color-text);
+  font-size: 1.35rem;
+}
+
+.workspace-empty-state p {
+  max-width: 28rem;
+  line-height: 1.6;
+}
+
+.inline-workspace-panel {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+}
+
+.inline-workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(219 231 245 / 0.84);
+  padding-bottom: 0.8rem;
+}
+
+.inline-workspace-header h2 {
+  font-size: 1.35rem;
+}
+
+.directory-list--inline {
+  max-height: min(36rem, calc(100vh - 18rem));
+  padding: 0;
+}
+
+.kid-form--inline {
+  padding: 0;
+}
+
+.kid-form textarea {
+  width: 100%;
+  min-height: 6.5rem;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.8rem;
+  color: var(--color-text);
+  background: var(--app-input-bg);
+  font: inherit;
+  outline: none;
+}
+
+.kid-form textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.14);
 }
 
 .launcher-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.7rem;
+}
+
+.launcher-grid--directory {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.launcher-grid--management {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .launcher-button {
@@ -2125,6 +2940,58 @@ select:focus {
   gap: 1.25rem;
   align-items: start;
   margin-top: 1.25rem;
+}
+
+.matching-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.matching-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(76rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  border: 1px solid rgb(219 231 245 / 0.95);
+  border-radius: 1rem;
+  background: var(--color-background);
+  box-shadow: 0 28px 70px rgb(15 23 42 / 0.26);
+}
+
+.matching-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(219 231 245 / 0.86);
+  padding: 1rem 1.1rem;
+  background: linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), #ffffff;
+}
+
+.matching-modal-header h2 {
+  font-size: 1.35rem;
+}
+
+.matching-modal .matching-workspace {
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0;
+  padding: 1rem;
+}
+
+.matching-modal .child-selector-panel {
+  position: static;
+}
+
+.matching-modal .child-card-list {
+  max-height: min(34rem, calc(100vh - 15rem));
 }
 
 .matching-panel {
@@ -2986,6 +3853,30 @@ tbody tr:not(.detail-row):hover,
   line-height: 1.45;
 }
 
+.provider-stage-summary {
+  display: grid;
+  gap: 0.45rem;
+  border-top: 1px solid rgb(219 231 245 / 0.76);
+  padding-top: 0.7rem;
+}
+
+.provider-stage-summary > strong {
+  color: var(--color-text);
+  font-size: 0.86rem;
+}
+
+.provider-stage-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.provider-stage-empty {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
 @media (max-width: 980px) {
   .page-heading,
   .command-center,
@@ -2996,6 +3887,10 @@ tbody tr:not(.detail-row):hover,
 
   .launcher-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-menu {
+    position: static;
   }
 
   .child-selector-panel {

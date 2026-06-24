@@ -333,7 +333,7 @@ function goBack() {
 .form-panel {
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-panel);
-  background: #ffffff;
+  background: var(--app-surface);
   box-shadow: var(--shadow-soft);
 }
 
@@ -351,7 +351,7 @@ function goBack() {
 .account-summary span,
 .account-summary small {
   margin: 0;
-  color: #858796;
+  color: var(--color-muted);
 }
 
 .eyebrow {
@@ -385,7 +385,7 @@ h2 {
   border-left: 4px solid var(--admin-primary);
   border-radius: 0.35rem;
   padding: 0.85rem;
-  background: #f8f9fc;
+  background: var(--app-surface-soft);
 }
 
 .account-summary strong {
@@ -424,7 +424,7 @@ h2 {
 
 .panel-icon--lock {
   color: #047857;
-  background: #d1fae5;
+  background: rgb(16 185 129 / 0.16);
 }
 
 .profile-uploader {
@@ -435,7 +435,7 @@ h2 {
   border: 1px solid var(--admin-border);
   border-radius: 0.75rem;
   padding: 1rem;
-  background: #f8f9fc;
+  background: var(--app-surface-soft);
 }
 
 .profile-preview {
@@ -470,7 +470,7 @@ h2 {
 
 .profile-tools p {
   margin: 0;
-  color: #858796;
+  color: var(--color-muted);
   font-size: 0.9rem;
 }
 
@@ -510,7 +510,7 @@ select {
   border-radius: 0.5rem;
   padding: 0 0.85rem;
   color: var(--admin-text);
-  background: #ffffff;
+  background: var(--app-input-bg);
   outline: none;
 }
 
@@ -576,7 +576,7 @@ select:focus {
 .ghost-action {
   border: 1px solid var(--admin-border);
   padding: 0 0.9rem;
-  background: #ffffff;
+  background: var(--app-input-bg);
 }
 
 .secondary-action {
@@ -591,7 +591,7 @@ select:focus {
   border: 1px solid var(--admin-border);
   padding: 0 0.9rem;
   color: var(--admin-text);
-  background: #ffffff;
+  background: var(--app-input-bg);
 }
 
 .primary-action:disabled {

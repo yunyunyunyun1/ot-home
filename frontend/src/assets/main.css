@@ -92,6 +92,40 @@ select {
   font: inherit;
 }
 
+.password-input-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 3rem !important;
+}
+
+.password-toggle-button {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  display: inline-grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.password-toggle-button:hover,
+.password-toggle-button:focus-visible {
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.1);
+  outline: none;
+}
+
 /* SB Admin 2 inspired global skin for the Vue app. */
 .home-page,
 .login-page,
@@ -202,7 +236,6 @@ select {
 :root[data-theme='dark'] .summary-strip,
 :root[data-theme='dark'] .summary-card,
 :root[data-theme='dark'] .hero-panel,
-:root[data-theme='dark'] .privacy-panel,
 :root[data-theme='dark'] .workflow-panel,
 :root[data-theme='dark'] .workflow-steps article,
 :root[data-theme='dark'] .register-shell,
@@ -213,7 +246,10 @@ select {
 :root[data-theme='dark'] .account-heading,
 :root[data-theme='dark'] .table-panel,
 :root[data-theme='dark'] .availability-panel,
+:root[data-theme='dark'] .workspace-menu,
 :root[data-theme='dark'] .command-section,
+:root[data-theme='dark'] .workspace-empty-state,
+:root[data-theme='dark'] .matching-modal,
 :root[data-theme='dark'] .launcher-button,
 :root[data-theme='dark'] .matching-panel,
 :root[data-theme='dark'] .resource-card,
@@ -266,6 +302,8 @@ select {
 :root[data-theme='dark'] .resource-card-main p,
 :root[data-theme='dark'] .assignment-summary-meta span,
 :root[data-theme='dark'] .empty-state,
+:root[data-theme='dark'] .workspace-empty-state p,
+:root[data-theme='dark'] .workspace-menu-group p,
 :root[data-theme='dark'] .form-hint {
   color: var(--color-muted) !important;
 }
@@ -291,6 +329,9 @@ select {
 
 :root[data-theme='dark'] .launcher-button:hover,
 :root[data-theme='dark'] .launcher-button:focus-visible,
+:root[data-theme='dark'] .workspace-menu-button:hover,
+:root[data-theme='dark'] .workspace-menu-button:focus-visible,
+:root[data-theme='dark'] .workspace-menu-button.is-active,
 :root[data-theme='dark'] .secondary-action:hover,
 :root[data-theme='dark'] .refresh-button:hover,
 :root[data-theme='dark'] .modal-close-button:hover,
@@ -325,6 +366,36 @@ select {
 :root[data-theme='dark'] .count-pill {
   color: #c7d2fe !important;
   background: #24314d !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-panel {
+  border-color: rgb(148 163 184 / 0.24) !important;
+  background: rgb(30 41 59 / 0.92) !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-primary,
+:root[data-theme='dark'] .home-page .objective-secondary {
+  border-color: rgb(148 163 184 / 0.24) !important;
+  background: rgb(15 23 42 / 0.72) !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-panel h2 {
+  color: #eef4ff !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-primary h3 {
+  color: #bfdbfe !important;
+  background: rgb(37 99 235 / 0.28) !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-secondary h3 {
+  color: #bbf7d0 !important;
+  background: rgb(16 185 129 / 0.22) !important;
+}
+
+:root[data-theme='dark'] .home-page .objective-primary p,
+:root[data-theme='dark'] .home-page .objective-list {
+  color: #cbd8ee !important;
 }
 
 /* Shared icon language: home=house, profile=person, child=person-hearts,

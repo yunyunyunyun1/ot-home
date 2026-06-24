@@ -13,7 +13,12 @@ class Settings(BaseSettings):
     first_admin_thai_id: str = ""
     first_admin_password: str = ""
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://ot-home-whaf.vercel.app",
+            "https://ot-home-mauve.vercel.app",
+        ]
     )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

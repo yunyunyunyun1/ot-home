@@ -170,6 +170,7 @@ class Kid(Base):
     full_name: Mapped[str] = mapped_column(String(160), nullable=False)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     gender: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    notable_symptoms: Mapped[str | None] = mapped_column(Text, nullable=True)
     address_id: Mapped[int] = mapped_column(ForeignKey("addresses.id"), nullable=False)
     created_by_case_manager_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

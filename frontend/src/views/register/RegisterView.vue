@@ -1,4 +1,16 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
+const privacyNoticeStorageKey = 'otathome-registration-privacy-notice-accepted'
+const showPrivacyNotice = ref(
+  typeof window !== 'undefined' && localStorage.getItem(privacyNoticeStorageKey) !== 'true',
+)
+
+function acceptPrivacyNotice() {
+  localStorage.setItem(privacyNoticeStorageKey, 'true')
+  showPrivacyNotice.value = false
+}
+
 const roles = [
   {
     title: 'ผู้ปกครอง',
@@ -51,6 +63,29 @@ const roles = [
         </RouterLink>
       </div>
     </section>
+
+    <div
+      v-if="showPrivacyNotice"
+      class="registration-notice-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="registration-notice-title"
+    >
+      <section class="registration-notice-card">
+        <span class="notice-icon" aria-hidden="true">
+          <i class="bi bi-shield-lock"></i>
+        </span>
+        <div>
+          <p class="eyebrow">Privacy Notice</p>
+          <h2 id="registration-notice-title">การใช้งานข้อมูลส่วนบุคคล</h2>
+          <p>
+            ระบบจะแสดงข้อมูลเด็ก ครอบครัว และผลประเมินเฉพาะผู้ใช้งานที่มีสิทธิ์ตามบทบาทเท่านั้น
+            กรุณาใช้งานข้อมูลเพื่อการให้บริการส่งเสริมพัฒนาการเด็กตามวัตถุประสงค์ของโครงการ
+          </p>
+        </div>
+        <button type="button" class="primary-action" @click="acceptPrivacyNotice">รับทราบ</button>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -240,6 +275,64 @@ h1 {
   color: var(--color-primary);
   font-size: 2rem;
   line-height: 1;
+}
+
+.registration-notice-overlay {
+  position: fixed;
+  z-index: 4200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.registration-notice-card {
+  display: grid;
+  gap: 1rem;
+  width: min(92vw, 34rem);
+  border: 1px solid rgb(219 231 245 / 0.92);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background: var(--color-surface);
+  box-shadow: 0 24px 60px rgb(31 41 55 / 0.24);
+}
+
+.notice-icon {
+  display: inline-grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 1.35rem;
+}
+
+.registration-notice-card h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.35rem;
+}
+
+.registration-notice-card p:not(.eyebrow) {
+  margin: 0.65rem 0 0;
+  color: var(--color-muted);
+  line-height: 1.75;
+}
+
+:global(:root[data-theme='dark']) .registration-notice-card {
+  border-color: rgb(148 163 184 / 0.24);
+  background: rgb(30 41 59 / 0.96);
+}
+
+:global(:root[data-theme='dark']) .registration-notice-card h2 {
+  color: #eef4ff;
+}
+
+:global(:root[data-theme='dark']) .registration-notice-card p:not(.eyebrow) {
+  color: #cbd8ee;
 }
 
 @media (max-width: 860px) {

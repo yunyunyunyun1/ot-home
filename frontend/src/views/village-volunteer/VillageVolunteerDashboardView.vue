@@ -196,6 +196,10 @@ onMounted(loadKids)
                         <strong>{{ kid.thai_id_masked }}</strong>
                       </div>
                       <div class="info-item info-item--wide">
+                        <span>อาการสำคัญ</span>
+                        <strong>{{ kid.notable_symptoms || '-' }}</strong>
+                      </div>
+                      <div class="info-item info-item--wide">
                         <span>ที่อยู่</span>
                         <strong
                           >{{ kid.address.subdistrict }}, {{ kid.address.district }},

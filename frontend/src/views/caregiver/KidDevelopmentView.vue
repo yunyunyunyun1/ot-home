@@ -172,7 +172,7 @@ function resultClass(result: DenverAspectResult) {
 }
 
 function sessionLabel(evaluationName: string) {
-  return `ครั้งที่ ${evaluationName}`
+  return evaluationName
 }
 
 function scheduleLabel(evaluation: DenverEvaluationResponse) {
@@ -652,6 +652,10 @@ onMounted(loadPage)
                 <dd>{{ kid.thai_id_masked }}</dd>
               </div>
               <div>
+                <dt>อาการสำคัญ</dt>
+                <dd>{{ kid.notable_symptoms || '-' }}</dd>
+              </div>
+              <div>
                 <dt>ที่อยู่</dt>
                 <dd>
                   {{ kid.address.house_no ? `${kid.address.house_no} ` : '' }}
@@ -681,6 +685,7 @@ onMounted(loadPage)
                 <tr>
                   <th scope="col">ครั้งที่ประเมิน</th>
                   <th scope="col">วันเวลานัด</th>
+                  <th scope="col">นักบำบัด</th>
                   <th scope="col">ส่วนบุคคล-สังคม</th>
                   <th scope="col">กล้ามเนื้อมัดเล็ก</th>
                   <th scope="col">ภาษา</th>
@@ -693,6 +698,7 @@ onMounted(loadPage)
                 <tr v-for="evaluation in evaluations" :key="evaluation.id">
                   <td>{{ sessionLabel(evaluation.evaluation_name) }}</td>
                   <td>{{ scheduleLabel(evaluation) }}</td>
+                  <td>{{ evaluation.evaluated_by_caregiver_name }}</td>
                   <td>
                     <span :class="resultClass(evaluation.aspect_1_result)">{{
                       resultLabel(evaluation.aspect_1_result)
@@ -886,6 +892,10 @@ onMounted(loadPage)
           <div>
             <dt>เลขประจำตัวประชาชน</dt>
             <dd>{{ kid.thai_id_masked }}</dd>
+          </div>
+          <div>
+            <dt>อาการสำคัญ</dt>
+            <dd>{{ kid.notable_symptoms || '-' }}</dd>
           </div>
           <div>
             <dt>วันเดือนปีเกิด</dt>

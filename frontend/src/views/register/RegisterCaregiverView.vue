@@ -10,7 +10,7 @@ import {
   type ThaiProvince,
   type ThaiSubdistrict,
 } from '../../data/thaiAddress'
-import { toDigits } from '../../utils/digits'
+import { isValidThaiId, toDigits } from '../../utils/digits'
 
 const provinceOptions = [...thaiAddressData.provinces]
 const genderOptions = [
@@ -41,6 +41,7 @@ const form = reactive({
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const showPassword = ref(false)
 const router = useRouter()
 
 function updateThaiId(event: Event) {
@@ -126,6 +127,12 @@ function buildPayload(): CaregiverRegisterPayload {
 async function submitForm() {
   errorMessage.value = ''
   successMessage.value = ''
+
+  if (!isValidThaiId(form.thai_id)) {
+    errorMessage.value = 'กรุณากรอกเลขประจำตัวประชาชนที่ถูกต้อง'
+    return
+  }
+
   isSubmitting.value = true
 
   try {
@@ -184,15 +191,26 @@ async function submitForm() {
               รหัสผ่าน <strong class="required-marker">*</strong>
               <small>(อย่างน้อย 8 ตัวอักษร มีพิมเล็กพิมใหญ่ และ มีตัวอักษรพิเศษ _+=-!@#$%^)</small>
             </span>
-            <input
-              v-model="form.password"
-              type="password"
-              minlength="8"
-              maxlength="128"
-              required
-              autocomplete="new-password"
-              placeholder="สร้างรหัสผ่าน"
-            />
+            <div class="password-input-wrapper">
+              <input
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                minlength="8"
+                maxlength="128"
+                required
+                autocomplete="new-password"
+                placeholder="สร้างรหัสผ่าน"
+              />
+              <button
+                type="button"
+                class="password-toggle-button"
+                :aria-label="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                :title="showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                @click="showPassword = !showPassword"
+              >
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true"></i>
+              </button>
+            </div>
           </label>
         </fieldset>
 
