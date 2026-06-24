@@ -17,7 +17,10 @@ const profileInput = ref<HTMLInputElement | null>(null)
 const form = reactive({
   full_name: authStore.user?.full_name ?? '',
   date_of_birth: authStore.user?.date_of_birth ?? '',
-  gender: authStore.user?.gender ?? '',
+  gender:
+    authStore.user?.gender === 'male' || authStore.user?.gender === 'female'
+      ? authStore.user.gender
+      : 'male',
   current_password: '',
   new_password: '',
   confirm_new_password: '',
@@ -35,8 +38,6 @@ const roleLabels: Record<string, string> = {
 const genderOptions = [
   { value: 'male', label: 'ชาย' },
   { value: 'female', label: 'หญิง' },
-  { value: 'other', label: 'อื่น ๆ' },
-  { value: 'prefer_not_to_say', label: 'ไม่ระบุ' },
 ]
 
 const roleLabel = computed(() => {
@@ -129,7 +130,8 @@ async function submitAccount() {
     authStore.setUser(updatedUser)
     form.profile_image_data = updatedUser.profile_image_data ?? ''
     form.date_of_birth = updatedUser.date_of_birth ?? ''
-    form.gender = updatedUser.gender ?? ''
+    form.gender =
+      updatedUser.gender === 'male' || updatedUser.gender === 'female' ? updatedUser.gender : 'male'
     form.current_password = ''
     form.new_password = ''
     form.confirm_new_password = ''
@@ -238,7 +240,6 @@ function goBack() {
             <label>
               <span>เพศ</span>
               <select v-model="form.gender">
-                <option value="">ไม่ระบุ</option>
                 <option v-for="option in genderOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>

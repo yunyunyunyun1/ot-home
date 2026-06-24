@@ -42,6 +42,9 @@ async function confirmLogout() {
 
 <template>
   <div class="profile-menu">
+    <span v-if="authStore.user?.full_name" class="profile-menu-name">
+      {{ authStore.user.full_name }}
+    </span>
     <button
       class="user-avatar-link profile-menu-trigger"
       type="button"
@@ -113,11 +116,24 @@ async function confirmLogout() {
 .profile-menu {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .profile-menu-trigger {
+  flex: 0 0 auto;
   border: 2px solid var(--app-surface);
   cursor: pointer;
+}
+
+.profile-menu-name {
+  max-width: min(16rem, 32vw);
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 0.92rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-avatar-fallback {

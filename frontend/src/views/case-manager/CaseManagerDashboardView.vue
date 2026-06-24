@@ -34,8 +34,6 @@ const provinceOptions = [...thaiAddressData.provinces]
 const genderOptions = [
   { value: 'male', label: 'ชาย' },
   { value: 'female', label: 'หญิง' },
-  { value: 'other', label: 'อื่น ๆ' },
-  { value: 'prefer_not_to_say', label: 'ไม่ระบุ' },
 ]
 
 const form = reactive({
@@ -756,7 +754,7 @@ onMounted(async () => {
     <section class="dashboard-shell" aria-labelledby="case-manager-title">
       <div class="page-heading">
         <div>
-          <h1 id="case-manager-title">ผู้ดูแลประจำจังหวัด {{ managerProvince || '...' }}</h1>
+          <h1 id="case-manager-title">ผู้จัดการเคส ประจำจังหวัด {{ managerProvince || '...' }}</h1>
         </div>
 
         <div class="summary-strip" aria-label="ภาพรวม">
@@ -2972,7 +2970,7 @@ select:focus {
   gap: 1rem;
   border-bottom: 1px solid rgb(219 231 245 / 0.86);
   padding: 1rem 1.1rem;
-  background: linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), #ffffff;
+  background: linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), var(--app-surface);
 }
 
 .matching-modal-header h2 {
@@ -3018,7 +3016,7 @@ select:focus {
   border-left: 4px solid transparent;
   border-radius: 0.55rem;
   padding: 0.62rem 0.7rem;
-  background: #ffffff;
+  background: var(--app-surface);
   cursor: pointer;
   transition:
     border-color 140ms ease,
@@ -3031,7 +3029,7 @@ select:focus {
 .child-match-card.is-selected {
   border-color: rgb(59 130 246 / 0.34);
   border-left-color: var(--color-primary);
-  background: #f8fbff;
+  background: var(--app-hover-bg);
   box-shadow: 0 14px 28px rgb(31 41 55 / 0.08);
 }
 
@@ -3154,7 +3152,8 @@ select:focus {
   border: 1px solid rgb(59 130 246 / 0.18);
   border-radius: 0.75rem;
   padding: 0.75rem 0.85rem;
-  background: linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), #ffffff;
+  background:
+    linear-gradient(135deg, rgb(59 130 246 / 0.08), transparent 48%), var(--app-surface-soft);
 }
 
 .assignment-summary-main {
@@ -3224,7 +3223,7 @@ select:focus {
   border-radius: 0.5rem;
   padding: 0;
   color: var(--admin-text);
-  background: #ffffff;
+  background: var(--app-input-bg);
   box-shadow: 0 0.125rem 0.25rem rgb(58 59 69 / 0.08);
   font-weight: 850;
   cursor: pointer;
@@ -3261,12 +3260,12 @@ select:focus {
   border: 1px solid rgb(219 231 245 / 0.9);
   border-radius: 0.58rem;
   padding: 0.58rem 0.68rem;
-  background: #ffffff;
+  background: var(--app-surface);
 }
 
 .resource-card--assigned {
   border-color: rgb(34 197 94 / 0.28);
-  background: #fbfffd;
+  background: var(--app-surface-soft);
 }
 
 .resource-card-main h4 {

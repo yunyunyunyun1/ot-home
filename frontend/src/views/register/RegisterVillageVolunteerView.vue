@@ -16,8 +16,6 @@ const provinceOptions = [...thaiAddressData.provinces]
 const genderOptions = [
   { value: 'male', label: 'ชาย' },
   { value: 'female', label: 'หญิง' },
-  { value: 'other', label: 'อื่น ๆ' },
-  { value: 'prefer_not_to_say', label: 'ไม่ระบุ' },
 ]
 
 const form = reactive({
