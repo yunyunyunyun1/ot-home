@@ -131,6 +131,32 @@ export type HomeProgramActivityResponse = HomeProgramActivityPayload & {
   updated_at: string
 }
 
+export type HomeProgramFollowUpPayload = {
+  performed_at: string
+  was_able: boolean
+  duration: string | null
+  note: string | null
+  image_data: string | null
+}
+
+export type HomeProgramFollowUpResponse = HomeProgramFollowUpPayload & {
+  id: string
+  kid_id: string
+  home_program_activity_id: string
+  village_volunteer_id: string
+  created_at: string
+  updated_at: string
+}
+
+export type HomeProgramFollowUpStatusResponse = HomeProgramFollowUpResponse & {
+  village_volunteer_name: string
+}
+
+export type HomeProgramActivityStatusResponse = HomeProgramActivityResponse & {
+  follow_up_count: number
+  latest_follow_up: HomeProgramFollowUpStatusResponse | null
+}
+
 export type HomeProgramTemplateResponse = {
   id: string
   source: string
@@ -226,6 +252,26 @@ export function listVillageVolunteerHomeProgramActivities(
   )
 }
 
+export function listVillageVolunteerHomeProgramFollowUps(
+  kidId: string,
+  activityId: string,
+): Promise<HomeProgramFollowUpResponse[]> {
+  return apiGet<HomeProgramFollowUpResponse[]>(
+    `/api/v1/village-volunteer/kids/${kidId}/home-programs/${activityId}/follow-ups`,
+  )
+}
+
+export function createVillageVolunteerHomeProgramFollowUp(
+  kidId: string,
+  activityId: string,
+  payload: HomeProgramFollowUpPayload,
+): Promise<HomeProgramFollowUpResponse> {
+  return apiPost<HomeProgramFollowUpResponse, HomeProgramFollowUpPayload>(
+    `/api/v1/village-volunteer/kids/${kidId}/home-programs/${activityId}/follow-ups`,
+    payload,
+  )
+}
+
 export function listMyAvailabilitySlots(): Promise<CaregiverAvailabilitySlotResponse[]> {
   return apiGet<CaregiverAvailabilitySlotResponse[]>('/api/v1/caregiver/availability')
 }
@@ -257,6 +303,20 @@ export function listDenverEvaluations(kidId: string): Promise<DenverEvaluationRe
   return apiGet<DenverEvaluationResponse[]>(`/api/v1/caregiver/kids/${kidId}/denver-evaluations`)
 }
 
+export function listCaseManagerDenverEvaluations(
+  kidId: string,
+): Promise<DenverEvaluationResponse[]> {
+  return apiGet<DenverEvaluationResponse[]>(`/api/v1/case-manager/kids/${kidId}/denver-evaluations`)
+}
+
+export function listCaseManagerHomeProgramStatuses(
+  kidId: string,
+): Promise<HomeProgramActivityStatusResponse[]> {
+  return apiGet<HomeProgramActivityStatusResponse[]>(
+    `/api/v1/case-manager/kids/${kidId}/home-programs`,
+  )
+}
+
 export function listTherapySessions(kidId: string): Promise<TherapySessionResponse[]> {
   return apiGet<TherapySessionResponse[]>(`/api/v1/caregiver/kids/${kidId}/therapy-sessions`)
 }
@@ -282,8 +342,12 @@ export function updateDenverEvaluation(
   )
 }
 
-export function listHomeProgramActivities(kidId: string): Promise<HomeProgramActivityResponse[]> {
-  return apiGet<HomeProgramActivityResponse[]>(`/api/v1/caregiver/kids/${kidId}/home-programs`)
+export function listHomeProgramActivities(
+  kidId: string,
+): Promise<HomeProgramActivityStatusResponse[]> {
+  return apiGet<HomeProgramActivityStatusResponse[]>(
+    `/api/v1/caregiver/kids/${kidId}/home-programs`,
+  )
 }
 
 export function createHomeProgramActivity(

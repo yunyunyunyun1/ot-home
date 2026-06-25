@@ -227,7 +227,7 @@ def update_denver_evaluation(
 
 @router.get(
     "/kids/{kid_id}/home-programs",
-    response_model=list[schemas.HomeProgramActivityRead],
+    response_model=list[schemas.HomeProgramActivityStatusRead],
 )
 def list_home_program_activities(
     kid_id: UUID,
@@ -237,13 +237,34 @@ def list_home_program_activities(
     db: Session = Depends(get_db),
 ):
     kid = _get_assigned_kid(kid_id, caregiver, db)
-    return crud.list_home_program_activities_for_kid(
+    activities = crud.list_home_program_activities_for_kid(
         db,
         kid,
         caregiver,
         skip=skip,
         limit=limit,
     )
+    activity_statuses: list[schemas.HomeProgramActivityStatusRead] = []
+    for activity in activities:
+        follow_ups = crud.list_home_program_follow_ups_for_activity(db, activity)
+        latest_follow_up = follow_ups[0] if follow_ups else None
+        activity_statuses.append(
+            schemas.HomeProgramActivityStatusRead(
+                **schemas.HomeProgramActivityRead.model_validate(activity).model_dump(),
+                follow_up_count=len(follow_ups),
+                latest_follow_up=(
+                    schemas.HomeProgramFollowUpStatusRead(
+                        **schemas.HomeProgramFollowUpRead.model_validate(
+                            latest_follow_up,
+                        ).model_dump(),
+                        village_volunteer_name=latest_follow_up.village_volunteer.full_name,
+                    )
+                    if latest_follow_up is not None
+                    else None
+                ),
+            )
+        )
+    return activity_statuses
 
 
 @router.post(

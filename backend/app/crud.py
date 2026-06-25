@@ -719,6 +719,22 @@ def list_latest_home_program_activities_for_kid(
     return list(db.scalars(statement).all())
 
 
+def list_all_home_program_activities_for_kid(
+    db: Session,
+    kid: models.Kid,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.HomeProgramActivity]:
+    statement = (
+        select(models.HomeProgramActivity)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+        .order_by(models.HomeProgramActivity.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
 def create_home_program_activity(
     db: Session,
     kid: models.Kid,
@@ -769,3 +785,69 @@ def delete_home_program_activity(
 ) -> None:
     db.delete(activity)
     db.commit()
+
+
+def get_home_program_activity_for_kid(
+    db: Session,
+    kid: models.Kid,
+    activity_id: UUID,
+) -> models.HomeProgramActivity | None:
+    statement = (
+        select(models.HomeProgramActivity)
+        .where(models.HomeProgramActivity.id == activity_id)
+        .where(models.HomeProgramActivity.kid_id == kid.id)
+    )
+    return db.scalar(statement)
+
+
+def list_home_program_follow_ups(
+    db: Session,
+    activity: models.HomeProgramActivity,
+    village_volunteer: models.User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.HomeProgramFollowUp]:
+    statement = (
+        select(models.HomeProgramFollowUp)
+        .where(models.HomeProgramFollowUp.home_program_activity_id == activity.id)
+        .where(models.HomeProgramFollowUp.village_volunteer_id == village_volunteer.id)
+        .order_by(models.HomeProgramFollowUp.performed_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def list_home_program_follow_ups_for_activity(
+    db: Session,
+    activity: models.HomeProgramActivity,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.HomeProgramFollowUp]:
+    statement = (
+        select(models.HomeProgramFollowUp)
+        .where(models.HomeProgramFollowUp.home_program_activity_id == activity.id)
+        .order_by(models.HomeProgramFollowUp.performed_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(db.scalars(statement).all())
+
+
+def create_home_program_follow_up(
+    db: Session,
+    kid: models.Kid,
+    activity: models.HomeProgramActivity,
+    village_volunteer: models.User,
+    follow_up_in: schemas.HomeProgramFollowUpCreate,
+) -> models.HomeProgramFollowUp:
+    follow_up = models.HomeProgramFollowUp(
+        kid=kid,
+        home_program_activity=activity,
+        village_volunteer=village_volunteer,
+        **follow_up_in.model_dump(),
+    )
+    db.add(follow_up)
+    db.commit()
+    db.refresh(follow_up)
+    return follow_up

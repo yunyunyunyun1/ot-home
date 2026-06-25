@@ -2,7 +2,7 @@ from datetime import date, datetime, time
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text, Time, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, String, Text, Time, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -351,6 +351,38 @@ class HomeProgramActivity(Base):
     evaluation: Mapped[DenverEvaluation | None] = relationship(
         back_populates="home_program_activities",
     )
+
+
+class HomeProgramFollowUp(Base):
+    __tablename__ = "home_program_follow_ups"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    kid_id: Mapped[UUID] = mapped_column(ForeignKey("kids.id"), nullable=False)
+    home_program_activity_id: Mapped[UUID] = mapped_column(
+        ForeignKey("home_program_activities.id"),
+        nullable=False,
+    )
+    village_volunteer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    performed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    was_able: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    duration: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    kid: Mapped[Kid] = relationship()
+    home_program_activity: Mapped[HomeProgramActivity] = relationship()
+    village_volunteer: Mapped[User] = relationship(foreign_keys=[village_volunteer_id])
 
 
 class CaregiverKidAssignment(Base):

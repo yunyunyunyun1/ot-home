@@ -19,6 +19,7 @@ import {
   type DenverAspectResult,
   type DenverEvaluationResponse,
   type HomeProgramActivityResponse,
+  type HomeProgramActivityStatusResponse,
   type HomeProgramTemplateResponse,
   type KidResponse,
   type TherapySessionResponse,
@@ -31,7 +32,7 @@ const authStore = useAuthStore()
 
 const kids = ref<KidResponse[]>([])
 const evaluations = ref<DenverEvaluationResponse[]>([])
-const homeProgramActivities = ref<HomeProgramActivityResponse[]>([])
+const homeProgramActivities = ref<HomeProgramActivityStatusResponse[]>([])
 const homeProgramTemplates = ref<HomeProgramTemplateResponse[]>([])
 const therapySessions = ref<TherapySessionResponse[]>([])
 const isLoading = ref(false)
@@ -214,6 +215,34 @@ function homeProgramEvaluation(activity: HomeProgramActivityResponse) {
 function homeProgramScheduleLabel(activity: HomeProgramActivityResponse) {
   const evaluation = homeProgramEvaluation(activity)
   return evaluation ? scheduleLabel(evaluation) : 'ยังไม่ได้ผูกกับผลประเมิน'
+}
+
+function homeProgramWithEmptyStatus(
+  activity: HomeProgramActivityResponse,
+): HomeProgramActivityStatusResponse {
+  const statusActivity = activity as Partial<HomeProgramActivityStatusResponse>
+  return {
+    ...activity,
+    follow_up_count: statusActivity.follow_up_count ?? 0,
+    latest_follow_up: statusActivity.latest_follow_up ?? null,
+  }
+}
+
+function followUpStatusLabel(activity: HomeProgramActivityStatusResponse) {
+  return activity.latest_follow_up ? 'ติดตามแล้ว' : 'รอติดตาม'
+}
+
+function followUpStatusClass(activity: HomeProgramActivityStatusResponse) {
+  return activity.latest_follow_up
+    ? 'follow-status follow-status--tracked'
+    : 'follow-status follow-status--pending'
+}
+
+function formatFollowUpDateTime(value: string) {
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
 }
 
 function homeProgramCountForEvaluation(evaluation: DenverEvaluationResponse) {
@@ -406,9 +435,12 @@ async function submitHomeProgramActivity() {
     const activity = wasEditing
       ? await updateHomeProgramActivity(kidId.value, editingHomeProgramActivityId.value, payload)
       : await createHomeProgramActivity(kidId.value, payload)
+    const activityWithStatus = homeProgramWithEmptyStatus(activity)
     homeProgramActivities.value = wasEditing
-      ? homeProgramActivities.value.map((item) => (item.id === activity.id ? activity : item))
-      : [activity, ...homeProgramActivities.value]
+      ? homeProgramActivities.value.map((item) =>
+          item.id === activityWithStatus.id ? activityWithStatus : item,
+        )
+      : [activityWithStatus, ...homeProgramActivities.value]
     resetHomeProgramForm()
     successMessage.value = wasEditing ? 'แก้ไข Home Program แล้ว' : 'บันทึก Home Program แล้ว'
     isHomeProgramModalOpen.value = false
@@ -1181,6 +1213,23 @@ onMounted(loadPage)
             </div>
             <small>{{ selectedHomeProgramDetailLabel }}</small>
             <p>{{ activity.instruction }}</p>
+            <div class="follow-status-summary">
+              <span :class="followUpStatusClass(activity)">
+                {{ followUpStatusLabel(activity) }}
+              </span>
+              <small v-if="activity.latest_follow_up">
+                อสม: {{ activity.latest_follow_up.village_volunteer_name }} ·
+                {{ formatFollowUpDateTime(activity.latest_follow_up.performed_at) }}
+              </small>
+              <small v-if="activity.latest_follow_up">
+                ผลล่าสุด:
+                {{ activity.latest_follow_up.was_able ? 'เด็กทำได้' : 'เด็กยังทำไม่ได้' }}
+                <template v-if="activity.latest_follow_up.duration">
+                  · {{ activity.latest_follow_up.duration }}
+                </template>
+              </small>
+              <small v-else>ยังไม่มี อสม บันทึกผลติดตาม</small>
+            </div>
             <small v-if="activity.frequency">ความถี่: {{ activity.frequency }}</small>
             <small v-if="activity.note">หมายเหตุ: {{ activity.note }}</small>
           </article>
@@ -1896,6 +1945,35 @@ h2 {
 .home-program-card small {
   color: #858796;
   font-weight: 700;
+}
+
+.follow-status-summary {
+  display: grid;
+  gap: 0.35rem;
+  border-top: 1px solid rgb(209 211 226 / 0.75);
+  margin-top: 0.25rem;
+  padding-top: 0.7rem;
+}
+
+.follow-status {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 1.75rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.follow-status--tracked {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.follow-status--pending {
+  color: #92400e;
+  background: #fef3c7;
 }
 
 .program-aspect {

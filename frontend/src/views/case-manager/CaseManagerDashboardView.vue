@@ -10,10 +10,15 @@ import {
   deleteKid,
   getCaseManagerContext,
   listCaregivers,
+  listCaseManagerDenverEvaluations,
+  listCaseManagerHomeProgramStatuses,
   listVillageVolunteers,
   listKids,
   updateKid,
   type CaregiverResponse,
+  type DenverAspectResult,
+  type DenverEvaluationResponse,
+  type HomeProgramActivityStatusResponse,
   type KidCreatePayload,
   type KidResponse,
   type KidUpdatePayload,
@@ -35,6 +40,12 @@ const genderOptions = [
   { value: 'male', label: 'ชาย' },
   { value: 'female', label: 'หญิง' },
 ]
+const homeProgramAspectLabels: Record<string, string> = {
+  personal_social: 'ส่วนบุคคล-สังคม',
+  fine_motor_adaptive: 'กล้ามเนื้อมัดเล็ก',
+  language: 'ภาษา',
+  gross_motor: 'กล้ามเนื้อมัดใหญ่',
+}
 
 const form = reactive({
   thai_id: '',
@@ -61,6 +72,10 @@ const selectedSlotByCaregiverId = ref<Record<string, string>>({})
 const editingKidId = ref('')
 const deletingKidId = ref('')
 const kidPendingDeletion = ref<KidResponse | null>(null)
+const therapyRecordKid = ref<KidResponse | null>(null)
+const therapyRecords = ref<DenverEvaluationResponse[]>([])
+const therapyHomePrograms = ref<HomeProgramActivityStatusResponse[]>([])
+const selectedHomeProgramEvaluationId = ref('')
 const activeWorkspace = ref<'' | 'kids' | 'caregivers' | 'volunteers' | 'child-form' | 'matching'>(
   '',
 )
@@ -78,6 +93,7 @@ const isKidPanelOpen = ref(false)
 const isLoading = ref(false)
 const isLoadingCaregivers = ref(false)
 const isLoadingVillageVolunteers = ref(false)
+const isLoadingTherapyRecords = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -268,6 +284,17 @@ function formatDate(value: string | null): string {
   }).format(new Date(value))
 }
 
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
 function kidMatchStatus(kid: KidResponse): { label: string; className: string } {
   const hasCaregiver = Boolean(kid.assigned_caregiver)
   const hasVillageVolunteer = kid.assigned_village_volunteers.length > 0
@@ -312,6 +339,52 @@ function openSlots(caregiver: CaregiverResponse) {
 
 function formatSlot(slot: { available_date: string; start_time: string; end_time: string }) {
   return `${slot.available_date} ${slot.start_time.slice(0, 5)}-${slot.end_time.slice(0, 5)}`
+}
+
+function scheduleLabel(evaluation: DenverEvaluationResponse): string {
+  if (
+    !evaluation.scheduled_date ||
+    !evaluation.scheduled_start_time ||
+    !evaluation.scheduled_end_time
+  ) {
+    return '-'
+  }
+
+  return `${evaluation.scheduled_date} ${evaluation.scheduled_start_time.slice(0, 5)}-${evaluation.scheduled_end_time.slice(0, 5)}`
+}
+
+function resultLabel(result: DenverAspectResult): string {
+  return result === 'pass' ? 'ผ่าน' : 'ไม่ผ่าน'
+}
+
+function resultClass(result: DenverAspectResult): string {
+  return result === 'pass' ? 'result-pill result-pill--pass' : 'result-pill result-pill--fail'
+}
+
+function homeProgramAspectLabel(aspect: string): string {
+  return homeProgramAspectLabels[aspect] ?? aspect
+}
+
+function followUpStatusClass(activity: HomeProgramActivityStatusResponse): string {
+  return activity.latest_follow_up ? 'home-program-status--tracked' : 'home-program-status--pending'
+}
+
+function homeProgramsForEvaluation(evaluation: DenverEvaluationResponse) {
+  return therapyHomePrograms.value.filter((activity) => activity.evaluation_id === evaluation.id)
+}
+
+function toggleHomeProgramDetails(evaluation: DenverEvaluationResponse) {
+  selectedHomeProgramEvaluationId.value =
+    selectedHomeProgramEvaluationId.value === evaluation.id ? '' : evaluation.id
+}
+
+function passedAspectCount(evaluation: DenverEvaluationResponse): number {
+  return [
+    evaluation.aspect_1_result,
+    evaluation.aspect_2_result,
+    evaluation.aspect_3_result,
+    evaluation.aspect_4_result,
+  ].filter((result) => result === 'pass').length
 }
 
 function optionalValue(value: string): string | null {
@@ -613,6 +686,42 @@ function cancelDeleteKid() {
   kidPendingDeletion.value = null
 }
 
+function closeTherapyRecordModal() {
+  if (isLoadingTherapyRecords.value) {
+    return
+  }
+
+  therapyRecordKid.value = null
+  therapyRecords.value = []
+  therapyHomePrograms.value = []
+  selectedHomeProgramEvaluationId.value = ''
+}
+
+async function openTherapyRecordModal(kid: KidResponse) {
+  therapyRecordKid.value = kid
+  therapyRecords.value = []
+  therapyHomePrograms.value = []
+  selectedHomeProgramEvaluationId.value = ''
+  isLoadingTherapyRecords.value = true
+  errorMessage.value = ''
+
+  try {
+    const [records, homePrograms] = await Promise.all([
+      listCaseManagerDenverEvaluations(kid.id),
+      listCaseManagerHomeProgramStatuses(kid.id),
+    ])
+    therapyRecords.value = records
+    therapyHomePrograms.value = homePrograms
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : 'ไม่สามารถโหลดประวัติการบำบัดได้ กรุณาลองใหม่อีกครั้ง'
+  } finally {
+    isLoadingTherapyRecords.value = false
+  }
+}
+
 async function confirmDeleteKid() {
   if (!kidPendingDeletion.value) {
     return
@@ -871,6 +980,15 @@ onMounted(async () => {
                       <span class="match-status" :class="kidMatchStatus(kid).className">
                         {{ kidMatchStatus(kid).label }}
                       </span>
+                      <button
+                        type="button"
+                        class="icon-action icon-action--history"
+                        aria-label="ดูประวัติการบำบัด"
+                        title="ดูประวัติการบำบัด"
+                        @click="openTherapyRecordModal(kid)"
+                      >
+                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                      </button>
                       <button
                         type="button"
                         class="icon-action icon-action--edit"
@@ -1908,6 +2026,15 @@ onMounted(async () => {
                   </span>
                   <button
                     type="button"
+                    class="icon-action icon-action--history"
+                    aria-label="ดูประวัติการบำบัด"
+                    title="ดูประวัติการบำบัด"
+                    @click="openTherapyRecordModal(kid)"
+                  >
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
                     class="icon-action icon-action--edit"
                     aria-label="แก้ไขข้อมูลเด็ก"
                     title="แก้ไขข้อมูลเด็ก"
@@ -2107,6 +2234,160 @@ onMounted(async () => {
           <div v-else-if="directoryVillageVolunteers.length === 0" class="empty-state">
             ไม่พบชื่อผู้ดูแลเด็กที่ค้นหา
           </div>
+        </div>
+      </section>
+    </div>
+
+    <div
+      v-if="therapyRecordKid"
+      class="directory-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="therapy-record-title"
+      @click.self="closeTherapyRecordModal"
+    >
+      <section class="directory-modal therapy-record-modal">
+        <header class="directory-modal-header">
+          <div>
+            <p class="eyebrow">ประวัติการบำบัด</p>
+            <h2 id="therapy-record-title">{{ therapyRecordKid.full_name }}</h2>
+            <p>แสดงผลประเมิน Denver II และนักกิจกรรมบำบัดของแต่ละ session</p>
+          </div>
+          <button
+            type="button"
+            class="modal-close-button"
+            aria-label="ปิดประวัติการบำบัด"
+            @click="closeTherapyRecordModal"
+          >
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </header>
+
+        <div v-if="isLoadingTherapyRecords" class="empty-state">กำลังโหลดประวัติการบำบัด...</div>
+        <div v-else-if="therapyRecords.length === 0" class="empty-state">
+          ยังไม่มีประวัติการประเมินของเด็กคนนี้
+        </div>
+        <div v-else class="therapy-record-list">
+          <article
+            v-for="evaluation in therapyRecords"
+            :key="evaluation.id"
+            class="therapy-record-card"
+          >
+            <div class="therapy-record-card-header">
+              <div>
+                <span class="record-session-pill">{{ evaluation.evaluation_name }}</span>
+                <h3>{{ scheduleLabel(evaluation) }}</h3>
+              </div>
+              <div class="therapy-record-actions">
+                <span class="record-score">{{ passedAspectCount(evaluation) }}/4</span>
+                <button
+                  type="button"
+                  class="home-program-detail-button"
+                  :aria-expanded="selectedHomeProgramEvaluationId === evaluation.id"
+                  @click="toggleHomeProgramDetails(evaluation)"
+                >
+                  <i class="bi bi-house-heart" aria-hidden="true"></i>
+                  <span>Home Program</span>
+                  <strong>{{ homeProgramsForEvaluation(evaluation).length }}</strong>
+                </button>
+              </div>
+            </div>
+
+            <dl class="therapy-record-meta">
+              <div>
+                <dt>นักกิจกรรมบำบัด</dt>
+                <dd>{{ evaluation.evaluated_by_caregiver_name }}</dd>
+              </div>
+              <div>
+                <dt>วันที่บันทึก</dt>
+                <dd>{{ formatDate(evaluation.created_at) }}</dd>
+              </div>
+            </dl>
+
+            <div class="therapy-aspect-grid" aria-label="ผลประเมิน Denver II">
+              <div>
+                <span>ส่วนบุคคล-สังคม</span>
+                <strong :class="resultClass(evaluation.aspect_1_result)">
+                  {{ resultLabel(evaluation.aspect_1_result) }}
+                </strong>
+              </div>
+              <div>
+                <span>กล้ามเนื้อมัดเล็ก</span>
+                <strong :class="resultClass(evaluation.aspect_2_result)">
+                  {{ resultLabel(evaluation.aspect_2_result) }}
+                </strong>
+              </div>
+              <div>
+                <span>ภาษา</span>
+                <strong :class="resultClass(evaluation.aspect_3_result)">
+                  {{ resultLabel(evaluation.aspect_3_result) }}
+                </strong>
+              </div>
+              <div>
+                <span>กล้ามเนื้อมัดใหญ่</span>
+                <strong :class="resultClass(evaluation.aspect_4_result)">
+                  {{ resultLabel(evaluation.aspect_4_result) }}
+                </strong>
+              </div>
+            </div>
+
+            <section
+              v-if="selectedHomeProgramEvaluationId === evaluation.id"
+              class="home-program-status-panel"
+              aria-label="Home Program ของ session นี้"
+            >
+              <div class="home-program-status-header">
+                <div>
+                  <p class="eyebrow">Home Program</p>
+                  <h3>โปรแกรมที่นักกิจกรรมบำบัดมอบหมาย</h3>
+                </div>
+                <span class="count-pill"
+                  >{{ homeProgramsForEvaluation(evaluation).length }} รายการ</span
+                >
+              </div>
+
+              <div
+                v-if="homeProgramsForEvaluation(evaluation).length === 0"
+                class="empty-state empty-state--compact"
+              >
+                ยังไม่มี Home Program สำหรับ session นี้
+              </div>
+              <div v-else class="home-program-status-list">
+                <article
+                  v-for="activity in homeProgramsForEvaluation(evaluation)"
+                  :key="activity.id"
+                  class="home-program-status-card"
+                >
+                  <div>
+                    <span class="program-aspect">{{
+                      homeProgramAspectLabel(activity.aspect)
+                    }}</span>
+                    <h4>{{ activity.title }}</h4>
+                    <p>{{ activity.instruction }}</p>
+                    <small v-if="activity.frequency">ความถี่: {{ activity.frequency }}</small>
+                    <small v-if="activity.note">หมายเหตุ: {{ activity.note }}</small>
+                  </div>
+                  <div class="home-program-status-meta">
+                    <span class="home-program-status" :class="followUpStatusClass(activity)">
+                      {{ activity.latest_follow_up ? 'ติดตามแล้ว' : 'รอติดตาม' }}
+                    </span>
+                    <small v-if="activity.latest_follow_up">
+                      {{ activity.latest_follow_up.village_volunteer_name }} ·
+                      {{ formatDateTime(activity.latest_follow_up.performed_at) }}
+                    </small>
+                    <small v-else>ยังไม่มี อสม บันทึกผลติดตาม</small>
+                    <small v-if="activity.latest_follow_up">
+                      ผลล่าสุด:
+                      {{ activity.latest_follow_up.was_able ? 'เด็กทำได้' : 'เด็กยังทำไม่ได้' }}
+                      <template v-if="activity.latest_follow_up.duration">
+                        · {{ activity.latest_follow_up.duration }}
+                      </template>
+                    </small>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </article>
         </div>
       </section>
     </div>
@@ -3756,6 +4037,12 @@ tbody tr:not(.detail-row):hover,
   background: #eff6ff;
 }
 
+.icon-action--history {
+  color: #4f46e5;
+  border-color: rgb(99 102 241 / 0.3);
+  background: #eef2ff;
+}
+
 .icon-action--danger {
   color: #dc2626;
   border-color: rgb(239 68 68 / 0.28);
@@ -3852,6 +4139,265 @@ tbody tr:not(.detail-row):hover,
   line-height: 1.45;
 }
 
+.therapy-record-modal {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(54rem, 100%);
+  background: var(--color-surface, #ffffff);
+}
+
+.therapy-record-modal .directory-modal-header p:not(.eyebrow) {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.therapy-record-list {
+  display: grid;
+  gap: 0.85rem;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.therapy-record-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid rgb(219 231 245 / 0.9);
+  border-radius: 0.85rem;
+  padding: 1rem;
+  background: var(--color-surface, #ffffff);
+}
+
+.therapy-record-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.therapy-record-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.therapy-record-card h3 {
+  margin: 0.35rem 0 0;
+  color: var(--color-text);
+  font-size: 1.05rem;
+}
+
+.record-session-pill,
+.record-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 850;
+}
+
+.record-session-pill {
+  min-width: 2rem;
+  min-height: 2rem;
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.1);
+}
+
+.record-score {
+  min-width: 3rem;
+  min-height: 2rem;
+  color: #047857;
+  background: #d1fae5;
+}
+
+.home-program-detail-button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgb(59 130 246 / 0.32);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  color: var(--color-primary);
+  background: rgb(59 130 246 / 0.08);
+  font-size: 0.8rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.home-program-detail-button strong {
+  display: inline-grid;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--color-primary);
+  font-size: 0.72rem;
+}
+
+.home-program-detail-button:hover,
+.home-program-detail-button:focus-visible,
+.home-program-detail-button[aria-expanded='true'] {
+  outline: none;
+  border-color: rgb(59 130 246 / 0.48);
+  background: rgb(59 130 246 / 0.14);
+}
+
+.therapy-record-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.therapy-record-meta dt,
+.therapy-aspect-grid span {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.therapy-record-meta dd {
+  margin: 0.2rem 0 0;
+  color: var(--color-text);
+  font-weight: 750;
+}
+
+.therapy-aspect-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.therapy-aspect-grid div {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgb(219 231 245 / 0.86);
+  border-radius: 0.65rem;
+  padding: 0.7rem;
+  background: var(--color-background-soft, #f8fbff);
+}
+
+.result-pill {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 1.8rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.result-pill--pass {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.result-pill--fail {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.home-program-status-panel {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid rgb(219 231 245 / 0.9);
+  border-radius: 0.85rem;
+  padding: 1rem;
+  background: var(--color-surface, #ffffff);
+}
+
+.home-program-status-header,
+.home-program-status-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-program-status-header h3,
+.home-program-status-card h4,
+.home-program-status-card p {
+  margin: 0;
+}
+
+.home-program-status-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-program-status-card {
+  border: 1px solid rgb(219 231 245 / 0.84);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  background: var(--color-background-soft, #f8fbff);
+}
+
+.home-program-status-card h4 {
+  margin-top: 0.45rem;
+  color: var(--color-text);
+  font-size: 0.96rem;
+}
+
+.home-program-status-card p {
+  margin-top: 0.35rem;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.home-program-status-card small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.program-aspect {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  color: #1d4ed8;
+  background: rgb(59 130 246 / 0.1);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.home-program-status-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+  min-width: 11rem;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.home-program-status {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.home-program-status--tracked {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.home-program-status--pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
 .provider-stage-summary {
   display: grid;
   gap: 0.45rem;
@@ -3938,16 +4484,25 @@ tbody tr:not(.detail-row):hover,
   .assignment-summary,
   .resource-controls,
   .resource-list--volunteers .resource-controls,
-  .directory-card dl {
+  .directory-card dl,
+  .therapy-record-meta,
+  .therapy-aspect-grid {
     grid-template-columns: 1fr;
   }
 
   .assignment-summary,
   .child-card-main,
+  .home-program-status-card,
   .resource-card-main,
   .resource-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .home-program-status-meta {
+    min-width: 0;
+    justify-items: start;
+    text-align: left;
   }
 
   .resource-heading-actions {

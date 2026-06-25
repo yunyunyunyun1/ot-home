@@ -362,6 +362,42 @@ class HomeProgramActivityRead(HomeProgramActivityCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class HomeProgramFollowUpCreate(BaseModel):
+    performed_at: datetime = Field(default_factory=datetime.now)
+    was_able: bool
+    duration: str | None = Field(default=None, max_length=120)
+    note: str | None = None
+    image_data: str | None = Field(default=None, max_length=1_500_000)
+
+    @field_validator("performed_at")
+    @classmethod
+    def performed_at_must_not_be_future(cls, value: datetime) -> datetime:
+        now = datetime.now(value.tzinfo) if value.tzinfo else datetime.now()
+        if value > now:
+            raise ValueError("Follow-up date cannot be in the future")
+        return value
+
+
+class HomeProgramFollowUpRead(HomeProgramFollowUpCreate):
+    id: UUID
+    kid_id: UUID
+    home_program_activity_id: UUID
+    village_volunteer_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeProgramFollowUpStatusRead(HomeProgramFollowUpRead):
+    village_volunteer_name: str
+
+
+class HomeProgramActivityStatusRead(HomeProgramActivityRead):
+    follow_up_count: int
+    latest_follow_up: HomeProgramFollowUpStatusRead | None = None
+
+
 class HomeProgramTemplateRead(BaseModel):
     id: str
     source: str

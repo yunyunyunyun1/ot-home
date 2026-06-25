@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app import crud, models, schemas
 from app.database import get_db
 from app.security import require_case_manager
-from app.serializers import caregiver_to_read, kid_to_read, village_volunteer_to_read
+from app.serializers import (
+    caregiver_to_read,
+    denver_evaluation_to_read,
+    kid_to_read,
+    village_volunteer_to_read,
+)
 
 router = APIRouter(prefix="/case-manager", tags=["case manager"])
 
@@ -91,6 +96,63 @@ def list_kids(
         limit=limit,
     )
     return [kid_to_read(kid) for kid in kids]
+
+
+@router.get(
+    "/kids/{kid_id}/denver-evaluations",
+    response_model=list[schemas.DenverEvaluationRead],
+)
+def list_kid_denver_evaluations(
+    kid_id: UUID,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    case_manager: models.User = Depends(require_case_manager),
+    db: Session = Depends(get_db),
+):
+    kid = _get_kid_in_case_manager_province(kid_id, case_manager, db)
+    evaluations = crud.list_denver_evaluations_for_kid(db, kid, skip=skip, limit=limit)
+    return [denver_evaluation_to_read(evaluation) for evaluation in evaluations]
+
+
+@router.get(
+    "/kids/{kid_id}/home-programs",
+    response_model=list[schemas.HomeProgramActivityStatusRead],
+)
+def list_kid_home_program_statuses(
+    kid_id: UUID,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    case_manager: models.User = Depends(require_case_manager),
+    db: Session = Depends(get_db),
+):
+    kid = _get_kid_in_case_manager_province(kid_id, case_manager, db)
+    activities = crud.list_all_home_program_activities_for_kid(
+        db,
+        kid,
+        skip=skip,
+        limit=limit,
+    )
+    activity_statuses: list[schemas.HomeProgramActivityStatusRead] = []
+    for activity in activities:
+        follow_ups = crud.list_home_program_follow_ups_for_activity(db, activity)
+        latest_follow_up = follow_ups[0] if follow_ups else None
+        activity_statuses.append(
+            schemas.HomeProgramActivityStatusRead(
+                **schemas.HomeProgramActivityRead.model_validate(activity).model_dump(),
+                follow_up_count=len(follow_ups),
+                latest_follow_up=(
+                    schemas.HomeProgramFollowUpStatusRead(
+                        **schemas.HomeProgramFollowUpRead.model_validate(
+                            latest_follow_up,
+                        ).model_dump(),
+                        village_volunteer_name=latest_follow_up.village_volunteer.full_name,
+                    )
+                    if latest_follow_up is not None
+                    else None
+                ),
+            )
+        )
+    return activity_statuses
 
 
 @router.patch("/kids/{kid_id}", response_model=schemas.KidRead)

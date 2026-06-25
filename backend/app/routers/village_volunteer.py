@@ -51,3 +51,75 @@ def list_kid_home_programs(
         skip=skip,
         limit=limit,
     )
+
+
+def _get_assigned_kid_and_activity(
+    kid_id: UUID,
+    activity_id: UUID,
+    village_volunteer: models.User,
+    db: Session,
+) -> tuple[models.Kid, models.HomeProgramActivity]:
+    kid = crud.get_kid_for_village_volunteer(db, kid_id, village_volunteer)
+    if kid is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Kid not found for this village volunteer",
+        )
+
+    activity = crud.get_home_program_activity_for_kid(db, kid, activity_id)
+    if activity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Home program not found for this kid",
+        )
+
+    return kid, activity
+
+
+@router.get(
+    "/kids/{kid_id}/home-programs/{activity_id}/follow-ups",
+    response_model=list[schemas.HomeProgramFollowUpRead],
+)
+def list_home_program_follow_ups(
+    kid_id: UUID,
+    activity_id: UUID,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    village_volunteer: models.User = Depends(require_village_volunteer),
+    db: Session = Depends(get_db),
+):
+    _, activity = _get_assigned_kid_and_activity(kid_id, activity_id, village_volunteer, db)
+    return crud.list_home_program_follow_ups(
+        db,
+        activity,
+        village_volunteer,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.post(
+    "/kids/{kid_id}/home-programs/{activity_id}/follow-ups",
+    response_model=schemas.HomeProgramFollowUpRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_home_program_follow_up(
+    kid_id: UUID,
+    activity_id: UUID,
+    follow_up_in: schemas.HomeProgramFollowUpCreate,
+    village_volunteer: models.User = Depends(require_village_volunteer),
+    db: Session = Depends(get_db),
+):
+    kid, activity = _get_assigned_kid_and_activity(
+        kid_id,
+        activity_id,
+        village_volunteer,
+        db,
+    )
+    return crud.create_home_program_follow_up(
+        db,
+        kid,
+        activity,
+        village_volunteer,
+        follow_up_in,
+    )
